@@ -1,4 +1,4 @@
-**Note**: The original code is taken from here: https://github.com/ArduPilot/UAVLogViewer, and I'm implementing/integrating the components below on top of the UI:
+**Note**: The original code is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I'm implementing/integrating the components below on top of the UI:
 
 - Backend API development
 - Agentic chatbot integration
