@@ -8,15 +8,6 @@
 - Authentication and session management (In progress)
 - Rate limiting (Not started yet)
 
-<div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
-  <iframe width="900" height="506" 
-          src="https://www.youtube.com/embed/vtJJbjGfosw" 
-          frameborder="0" 
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-          allowfullscreen>
-  </iframe>
-</div>
-
 ### Running  
 
 #### 1. Create and activate a virtual environment
