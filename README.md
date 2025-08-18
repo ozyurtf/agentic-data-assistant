@@ -2,7 +2,7 @@
 
 - Backend API development
 - API Gateway
-- Agentic chatbot integration
+- Agentic chatbot development and integration
 - File management system
 - Authentication and session management
 - Rate limiting 
