@@ -41,14 +41,3 @@ class HealthResponse(BaseModel):
 class DeleteFileResponse(BaseModel):
     message: str
     file_id: str
-    
-class VectorstoreUpdateRequest(BaseModel):
-    content: str
-    index_path: str
-    
-class VectorstoreQueryRequest(BaseModel):
-    content: str
-    index_path: str
-    
-class UpdateVectorstoreRequest(BaseModel):
-    page_contents: List[str]    

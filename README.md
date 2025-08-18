@@ -2,9 +2,9 @@
 
 - Backend API development
 - Agentic chatbot integration
-- RAG system
 - File management system
 - Authentication and session management
+- Rate limiting 
 
 <div>
   <h2 style="text-align: left;">Before</h2>
@@ -18,3 +18,17 @@
     <img src="images/after.gif" alt="After demonstration" width="900" />
   </div>
 </div>
+
+### Running 
+
+```bash
+pip install -r requirements.txt
+```
+
+```bash
+npm install -g firecrawl-mcp
+```
+
+```bash
+pip install firecrawl-py==0.0.20
+```
