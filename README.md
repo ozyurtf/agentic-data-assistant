@@ -1,6 +1,7 @@
 **Note**: The original code is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I'm implementing/integrating the components below on top of the UI:
 
 - Backend API development
+- API Gateway
 - Agentic chatbot integration
 - File management system
 - Authentication and session management
@@ -15,7 +16,12 @@
 
   <h2 style="text-align: left;">After</h2>
   <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
-    <img src="images/after.gif" alt="After demonstration" width="900" />
+    <iframe width="900" height="506" 
+            src="https://www.youtube.com/embed/vtJJbjGfosw" 
+            frameborder="0" 
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+            allowfullscreen>
+    </iframe>
   </div>
 </div>
 
