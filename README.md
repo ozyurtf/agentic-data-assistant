@@ -1,4 +1,4 @@
-**Note**: The original code is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I'm implementing/integrating the components below on top of the UI:
+**Note**: The main motivation behind this project is to refresh my knowledge of designing scalable and robust AI systems. The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
 - Backend API development
 - API Gateway
@@ -78,5 +78,3 @@ chainlit run app.py
 # Start the FastAPI backend
 python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
-
-Once everything is running, open your browser and visit: http://127.0.0.1:8080
