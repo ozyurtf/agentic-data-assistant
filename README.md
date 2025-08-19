@@ -1,13 +1,12 @@
 **Note**: The main motivation behind this project is to refresh my knowledge of designing scalable and robust AI systems. The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
-- Backend API development (Done)
-- API Gateway (Not started yet)
-- 
-- Chat history persistance and storage (Not started yet)
-- Agentic chatbot development and integration (Done)
-- File management system (In progress)
-- Authentication and session management (In progress)
-- Rate limiting (Done)
+- Backend API development *(Done)*
+- API Gateway *(Not started yet)*
+- Chat history persistance and storage *(Not started yet)*
+- Agentic chatbot development and integration *(Done)*
+- File management system *(In progress)*
+- Authentication and session management *(In progress)*
+- Rate limiting *(Done)*
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
   <iframe width="900" height="506" 
