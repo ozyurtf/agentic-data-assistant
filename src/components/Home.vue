@@ -66,6 +66,7 @@ export default {
     name: 'Home',
     created () {
         this.$eventHub.$on('messagesDoneLoading', this.extractFlightData)
+        this.$eventHub.$on('newFileProcessing', this.resetDataExtractor)
         this.state.messages = {}
         this.state.timeAttitude = []
         this.state.timeAttitudeQ = []
@@ -74,6 +75,7 @@ export default {
     },
     beforeDestroy () {
         this.$eventHub.$off('messages')
+        this.$eventHub.$off('newFileProcessing')
     },
     data () {
         return {
@@ -83,6 +85,9 @@ export default {
         }
     },
     methods: {
+        resetDataExtractor () {
+            this.dataExtractor = null
+        },
         extractFlightData () {
             if (this.dataExtractor === null) {
                 if (this.state.logType === 'tlog') {

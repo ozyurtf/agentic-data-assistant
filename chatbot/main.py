@@ -30,6 +30,15 @@ app.add_middleware(CORSMiddleware,
 def get_user_id(request: Request):
     return request.headers.get("user-id", request.client.host)
 
+def clear_user_cache(user_id: str):
+    """Clear cached data for a specific user when a new file is uploaded"""
+    global cached_data
+    # Remove all cached data entries for this user
+    keys_to_remove = [key for key in cached_data.keys() if key[0] == user_id]
+    for key in keys_to_remove:
+        del cached_data[key]
+    print(f"Cleared cache for user: {user_id}")
+
 limiter = Limiter(key_func=get_user_id)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
@@ -69,6 +78,9 @@ async def receive_file(request: Request, file_id: str, file: UploadFile = File(.
         file_data = {"file_id": file_id,
                      "file_path": str(file_path),
                      "filename": file.filename}  
+        
+        # Clear any cached data for this user when uploading a new file
+        clear_user_cache(user_id)
         
         file_stack[user_id].append(file_data)
         print(f"File uploaded successfully. File stack for user {user_id}: {file_stack[user_id]}")

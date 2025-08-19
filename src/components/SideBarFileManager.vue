@@ -64,6 +64,37 @@ export default {
         this.$eventHub.$off('open-sample')
     },
     methods: {
+        // Helper method to reset state for new file
+        resetStateForNewFile () {
+            this.state.messages = {}
+            this.state.trajectories = {}
+            this.state.timeTrajectory = {}
+            this.state.timeAttitude = {}
+            this.state.timeAttitudeQ = {}
+            this.state.currentTrajectory = []
+            this.state.trajectorySources = []
+            this.state.trajectorySource = ''
+            this.state.flightModeChanges = []
+            this.state.events = []
+            this.state.mission = []
+            this.state.params = undefined
+            this.state.defaultParams = {}
+            this.state.textMessages = []
+            this.state.namedFloats = []
+            this.state.metadata = null
+            this.state.processDone = false
+            this.state.plotOn = false
+            this.state.mapAvailable = false
+            this.state.showMap = false
+            this.state.vehicle = null
+            this.state.attitudeSources = {}
+            this.state.attitudeSource = null
+            this.state.lastTime = null
+            this.state.fences = []
+
+            // Emit event to notify components that a new file is being processed
+            this.$eventHub.$emit('newFileProcessing')
+        },
         // Added
         async sendFileToChatbot (file) {
             try {
@@ -91,6 +122,9 @@ export default {
             worker.postMessage({ action: 'trimFile', time: this.state.timeRange })
         },
         onLoadSample (file) {
+            // Reset state for new file
+            this.resetStateForNewFile()
+
             let url
             if (file === 'sample') {
                 this.state.file = 'sample'
@@ -171,6 +205,9 @@ export default {
             })
         },
         process: function (file) {
+            // Reset state for new file
+            this.resetStateForNewFile()
+
             this.state.file = file.name
             this.state.processStatus = 'Pre-processing...'
             this.state.processPercentage = 100

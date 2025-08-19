@@ -130,8 +130,13 @@ def extract_data(query: str, web_content: str = "") -> str:
                 "error": "No file uploaded. Please upload a log file first."
             }
         
+        # Check if this is a new file (different file_id)
+        if state.get("file_id") != file_id:
+            # New file uploaded, reset msg_context
+            state["msg_context"] = ""
+            state["file_id"] = file_id
+        
         # Step 1: Read message types and fields
-        step1_start = time.time()
         mlog = mavutil.mavlink_connection(file_path)
         msg_info = defaultdict(set)
 
@@ -155,11 +160,7 @@ def extract_data(query: str, web_content: str = "") -> str:
         else:
             msg_context = state["msg_context"]
 
-        step1_time = time.time() - step1_start
-        print(f"Step 1 (Read message types and fields) completed in {step1_time:.2f} seconds")
-        
         # Step 2: Extract column mapping
-        step2_start = time.time()
         template = """
         User query: {query}
 
@@ -167,16 +168,65 @@ def extract_data(query: str, web_content: str = "") -> str:
         {web_content}
 
         Identify the most relevant log message type(s) and the most relevant list of fields within them
-        needed to answer the user query.
+        needed to answer the user query. 
+        
+        **Important:**
+        If the user asks the anomalies/issues observed,you can check for ERR data if it is in this list: {msg_context} 
+
+        In addition, here are some examples of anomalies/issues that you can be seen in different data types:
+
+        - Attitude data: There might be large and persistent gaps between the desired roll angle and actual roll angle, 
+        between the desired pitch angle and actual pitch angle, or between the desired yaw angle and actual yaw angle. 
+        Alternatively, the actual values might constantly oscillate around the desired values. The vehicle might also appear level while the pitch slowly drifts.
+        
+        - Barometer data: Pressure readings might not change or may change slowly despite the vehicle being in motion. 
+        There could also be a temperature failure, where the temperature jumps up or down by a large amount. 
+        Different barometer instances (I = 0, I = 1, I = 2, etc.) might show very different readings, or the H = false (unhealthy) flag might be set.
+        
+        - ARM data: There might be multiple ARM messages with Force = True (meaning the pilot forced arming despite failed safety checks). 
+        ARM messages may also occur within short time periods (seconds/minutes apart). 
+        Example: ArmState: False -> True -> False -> True -> False under 2 minutes. 
+        ARM messages might also show ArmState changing from True -> False during flight.
+
+        - RCIN data: Channels might show failsafe values or completely missing data. 
+        Failsafe values are predetermined "safe" control positions the vehicle automatically uses when it loses radio connection. 
+        Common failsafe values are:
+            + Throttle (C3): 1000 µs (minimum/idle power)
+            + Roll/Pitch (C1/C2): 1500 µs (centered/level flight)
+            + Yaw (C4): 1500 µs (no turning)
+        Physical joysticks on the pilot's transmitter may also fail to produce the expected signal values. 
+        
+        Normal behavior:
+        - Stick centered (C1): 1500 µs
+        - Stick fully left/down (C1): 1000 µs
+        - Stick fully right/up (C1): 2000 µs
+        
+        Drift problem example:
+        - Stick centered: C1 = 1520 µs (should be 1500 µs)
+        - Stick left: C1 = 1020 µs (should be 1000 µs)
+        Stick right: C1 = 2020 µs (should be 2000 µs)
+        
+        As a result, even when the pilot thinks they’re flying straight, the drone constantly banks right because 
+        the "neutral" position is actually sending a slight right command (1520 µs instead of 1500 µs).
+        
+        Channel values might also jump rapidly or show excessive corrections. 
+        For instance, C2 might oscillate rapidly between 1400–1600 µs instead of smooth values, 
+        or exhibit high-frequency control inputs due to electrical interference, damaged transmitter, pilot stress/inexperience, vibration affecting the transmitter, etc.
 
         **Important:**  
-        - It is very important that the log message type(s) and field(s) you return are part of the log message type(s) in this list: {msg_context}.
+        - It is VERY IMPORTANT that the log message type(s) and field(s) you return are part of the log message type(s) in the msg_context: {msg_context}.
+        The name of the log message type(s) and field(s) in the uploaded file might now always be the same as the ones in the msg_context. 
+        For instance, you might see the log message type "ATTITUDE" in the uploaded file while you see "ATT" in the the msg_context. 
+        A user might upload a file, ask for the maximum value of a pitch and it can be found in the "ATTITUDE" log message type in one file 
+        and in the "ATT" log message type in the next file uploaded. Be careful about these. Always return the log message type(s) and field(s)
+        in the msg_context.
         - Respond with ONLY one Python dictionary in this exact format, no extra text or explanation:
 
         {{'LogMessageType': ['field1', 'field2', ...\n], ...\n}}
 
         - Replace 'LogMessageType' and field names with your best guesses, based on the provided field descriptions.  
-        - Consider relationships between fields. For example, if the query asks for the time when the highest longitude is observed, return both the longitude field and the time field together.  
+        - Consider relationships between fields. For example, if the query asks for the time when the highest longitude is observed, 
+        return both the longitude field and the time field together.  
         - Only include fields necessary to answer the query, avoid irrelevant ones.  
         - Do NOT output placeholders or quotes around keys like 'log message type'.  
         - Do NOT include anything other than the Python dictionary.
@@ -188,11 +238,9 @@ def extract_data(query: str, web_content: str = "") -> str:
         chain = prompt | model
         result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context})
         col_map = ast.literal_eval(result.content.strip())
-        step2_time = time.time() - step2_start
-        print(f"Step 2 (Extract column mapping) completed in {step2_time:.2f} seconds")
         
+                
         # Step 3: Read data using the API endpoint
-        step3_start = time.time()
         user_id = get_user_id()
         headers = {"user-id": user_id}
         
@@ -224,14 +272,7 @@ def extract_data(query: str, web_content: str = "") -> str:
                 df = pd.DataFrame(rows)
                 df.dropna(axis=1, how='all', inplace=True) 
                 result_data[msg_type] = df
-        
-        step3_time = time.time() - step3_start
-        print(f"Step 3 (Read data using API endpoint) completed in {step3_time:.2f} seconds")
-        
-        # Print total execution time
-        total_time = step1_time + step2_time + step3_time
-        print(f"Total execution time: {total_time:.2f} seconds")
-        
+                        
         return {
             "msg_context": msg_context,
             "col_map": col_map,
@@ -286,7 +327,6 @@ def visualize(data_description: str):
     """Visualize the data in a plot."""
     return "Visualization tool called - processing will be handled by workflow"
 
-
 async def decide_tools_to_use(state: ArduPilotAnalysisState) -> ArduPilotAnalysisState:
     """LLM decides which tools to use based on the user query from ALL available tools."""
     await stream_text_word_by_word("Analyzing query to determine required tools...\n", "Tool Selection")
@@ -323,11 +363,10 @@ async def decide_tools_to_use(state: ArduPilotAnalysisState) -> ArduPilotAnalysi
     After this, the data that will be used for visualization will be added to the state. 
     And then you can use this data and visualize it by using the visualize tool. 
     - Don't visualize the data unless you are explicitly asked.
-    - If the user is asking for anomaly detection, use the anomaly_detection tool.  
-
-    **Important:**
-    - If the user is asking for anomaly detection, look at the data you have available after using the extract_data tool
-    and check the issues/anomalies in the data. For example, if the user 
+    - If the user is asking for anomalies/issues, look at the data you have available after using the extract_data tool and 
+    check for issues/anomalies in the data. You can utilize tools such as maximum, minimum, average, total_sum, when_maximum, when_minimum, etc., 
+    to check for anomalies and issues but this is optional. If you think these tools won't be useful, you can simply look at the raw data
+    on your own and try to find the anomalies/issues. 
 
     Respond with ONLY the tool name(s) separated by commas, or "none" if no tools are needed.
     """
@@ -627,6 +666,7 @@ async def generate_final_answer(state: ArduPilotAnalysisState) -> ArduPilotAnaly
     **Important:** Consider the conversation context here {chat_history}.
     If the user is asking follow-up questions or referring to previous analysis, you may need different tools or no tools at all.
     Also, when giving the answer, make sure that it is organized, clean, readable and in a nice format.
+    Finally, don't include any code in your response.
     """
 
     prompt = PromptTemplate(
@@ -712,8 +752,11 @@ def auth_callback(username: str, password: str):
 @cl.on_chat_start
 async def start_chat():
     print("ArduPilot Analysis Chatbot Started!")
-    system_msg = "You are an agentic drone flight data analyst with access to powerful tools for analyzing ArduPilot log files and extracting content from documentation. You can use multiple tools to provide comprehensive answers."
-    cl.user_session.set("chat_history", [{"role": "system", "content": system_msg}])
+    
+    # Only initialize chat history if it doesn't exist
+    if not cl.user_session.get("chat_history"):
+        system_msg = "You are an agentic drone flight data analyst with access to powerful tools for analyzing ArduPilot log files and extracting content from documentation. You can use multiple tools to provide comprehensive answers."
+        cl.user_session.set("chat_history", [{"role": "system", "content": system_msg}])
 
 @cl.on_message
 async def main(message: cl.Message):
