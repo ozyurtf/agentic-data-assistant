@@ -2,11 +2,12 @@
 
 - Backend API development (Done)
 - API Gateway (Not started yet)
+- 
 - Chat history persistance and storage (Not started yet)
 - Agentic chatbot development and integration (Done)
 - File management system (In progress)
 - Authentication and session management (In progress)
-- Rate limiting (Not started yet)
+- Rate limiting (Done)
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
   <iframe width="900" height="506" 
@@ -19,31 +20,18 @@
 
 ### Running  
 
-#### 1. Create and activate a virtual environment
-```bash
-python -m venv .venv
-source .venv/bin/activate
-```
+### 1. Configure Environment Variables
 
-#### 2. Install dependencies 
-```bash
-pip install -r requirements.txt
-pip install firecrawl-py==0.0.20
-pip install -r chatbot/requirements.txt
-npm install -g firecrawl-mcp
-```
-
-#### 3. Configure environment variables
 
 Create a .env file in the root folder with the following values:
 
 ```env 
 # Cesium (required)
-VUE_APP_CESIUM_TOKEN=<your_cesium_ion_token>   # Get from https://community.cesium.com/login
+VUE_APP_CESIUM_TOKEN=<your_cesium_ion_token>   # Get from https://ion.cesium.com/signin
 VUE_APP_CESIUM_RESOURCE_ID=3
 
 # MapTiler (required)
-VUE_APP_MAPTILER_KEY=<your_maptiler_key>
+VUE_APP_MAPTILER_KEY=<your_maptiler_key>       # Get from https://docs.maptiler.com/cloud/api/authentication-key/
 
 # OpenAI (required)
 OPENAI_API_KEY=<your_openai_api_key>           # Get from https://platform.openai.com/api-keys
@@ -59,10 +47,37 @@ USER_AGENT=drone-chatbot
 API_BASE_URL=http://127.0.0.1:8001
 ```
 
-#### 4. Run with Docker 
+### 2. Create and Activate a Virtual Environment
+
+**macOS/Linux:**
+```bash
+python -m venv .venv
+source .venv/bin/activate
+```
+
+**Windows (PowerShell):**
+```bash
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+```
+**Windows (Command Prompt):**
+```bash
+python -m venv .venv
+.venv\Scripts\activate.bat
+```
+
+### 3. Install Dependencies 
 
 ```bash
-docker build -t <your-username>/uavlogviewer .
+pip install -r chatbot/requirements.txt
+npm install -g firecrawl-mcp
+```
+
+### 4. Run with Docker 
+
+```bash
+docker build -t <your-username>/uavlogviewer . 
+
 docker run \
   -e VUE_APP_CESIUM_TOKEN=<your_cesium_ion_token> \
   -it -p 8080:8080 \
@@ -70,12 +85,20 @@ docker run \
   <your-username>/uavlogviewer
 ```
 
-#### 5. Start service locally 
+### 5. Start Services Locally
+
+```bash
+cd chatbot
+```
 
 ```bash
 # Start the Chainlit chatbot
 chainlit run app.py
-
-# Start the FastAPI backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
+
+```bash
+# Start the FastAPI backend
+python -m uvicorn main:app --host 127.0.0.1 --port 8001 --reload
+```
+
+Visit `http://localhost:8080/` to interact with the chatbot.

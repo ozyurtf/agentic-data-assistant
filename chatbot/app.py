@@ -346,7 +346,7 @@ async def decide_tools_to_use(state: ArduPilotAnalysisState) -> ArduPilotAnalysi
     
     if tool_response == "none":
         state["tool_decisions"] = []
-        state["final_answer"] = "Hello! I can help you analyze ArduPilot log files and extract content from documentation. Please provide a URL to extract content from, or ask a question about log file data."
+        state["final_answer"] = "Hello! I can help you analyze your files and extract content from documentation. Please provide a URL to extract content from, or ask a question about log file data."
         await stream_text_word_by_word("No tools required for this query.")
     else:
         tools = [tool.strip() for tool in tool_response.split(',')]
@@ -396,7 +396,7 @@ async def execute_unified_tools(state: ArduPilotAnalysisState) -> ArduPilotAnaly
             state["tool_results"].append(f"Web content extraction result:\n{tool_result}")
             
         elif current_tool == "extract_data":
-            await stream_text_word_by_word("Reading log messages from ArduPilot log file...\n")
+            await stream_text_word_by_word("Reading log messages from your file...\n")
             await stream_text_word_by_word("Extracting message types and fields...\n")
             
             # Debug: Print current state
@@ -730,9 +730,6 @@ async def main(message: cl.Message):
         # Create a streaming message for the response
         current_streaming_msg = cl.Message(content="")
         await current_streaming_msg.send()
-        
-        # Show initial processing status
-        await stream_text_word_by_word("ArduPilot Analysis System Initializing...\n", "System Status")
         
         # Use the compiled workflow to handle the entire process
         try:

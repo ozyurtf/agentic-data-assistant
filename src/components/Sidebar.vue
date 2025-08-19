@@ -6,16 +6,16 @@
             <a class="github" href="https://github.com/ozyurtf/uav-log-viewer">
             <img :src="require('../assets/GitHub-Mark-64px.png').default"/>
             </a>
-            <a href="/"><b>UAV</b> Log Viewer<i class="fas fa-plane"></i></a><a class="github" href="https://ardupilot.org/copter/docs/common-uavlogviewer.html"><img :src="require('../assets/wiki.svg').default"/></a></h1>
+            <a href="/">Agentic Data Assistant<i></i></a><a class="github" href="https://ardupilot.org/copter/docs/common-uavlogviewer.html"><img :src="require('../assets/wiki.svg').default"/></a></h1>
         <!-- TABHOLDER -->
         <i class="fa fa-bars fa-2x toggle-btn" v-b-toggle.menucontent></i>
         <b-collapse class="menu-content collapse out" id="menucontent" visible>
             <span v-if="state.file" class="filename">Current file: {{state.file}}</span>
             <div class="tabholder">
                 <!-- Home -->
-                <a :class="selected === 'home' ? 'selected' : ''" @click="selected='home'" v-if="!state.processDone">
+                <a :class="selected === 'home' ? 'selected' : ''" @click="selected='home'">
                 <i class="fas fa-home"></i>Home</a>
-                <!-- Home -->
+                <!-- Chatbot -->
                 <a :class="selected === 'chat' ? 'selected' : ''" @click="selected='chat'">
                 <i class="fas fa-comments"></i>Chatbot</a>
                 <!-- Plot -->

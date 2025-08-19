@@ -68,10 +68,11 @@ export default {
         async sendFileToChatbot (file) {
             try {
                 const fileId = uuidv4()
-                const userId = 'fozyurt'
+                const userId = 'admin'
                 const formData = new FormData()
                 formData.append('file', file)
-                const response = await fetch(`http://127.0.0.1:8001/api/files/${fileId}`, {
+                const API_BASE_URL = 'http://127.0.0.1:8001'
+                const response = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
                     method: 'POST',
                     headers: { 'user-id': userId },
                     body: formData

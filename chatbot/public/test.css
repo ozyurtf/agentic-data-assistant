@@ -5,3 +5,76 @@ a[href*='https://github.com/Chainlit/chainlit'] {
 .watermark {
 display: none !important;
 }
+
+/* Reduce font sizes throughout the chatbot interface */
+.cl-message {
+    font-size: 0.9rem !important;
+}
+
+.cl-message-content {
+    font-size: 0.9rem !important;
+}
+
+.cl-message-text {
+    font-size: 0.9rem !important;
+}
+
+.cl-input {
+    font-size: 0.9rem !important;
+}
+
+.cl-input-text {
+    font-size: 0.9rem !important;
+}
+
+.cl-sidebar {
+    font-size: 0.9rem !important;
+}
+
+.cl-sidebar-content {
+    font-size: 0.9rem !important;
+}
+
+.cl-chat-interface {
+    font-size: 0.9rem !important;
+}
+
+.cl-chat-message {
+    font-size: 0.9rem !important;
+}
+
+.cl-chat-input {
+    font-size: 0.9rem !important;
+}
+
+/* Reduce font size for code blocks and other elements */
+pre, code {
+    font-size: 0.85rem !important;
+}
+
+.cl-code-block {
+    font-size: 0.85rem !important;
+}
+
+/* Reduce font size for buttons and UI elements */
+button, .cl-button {
+    font-size: 0.9rem !important;
+}
+
+/* Reduce font size for headers and titles */
+h1, h2, h3, h4, h5, h6 {
+    font-size: 0.95rem !important;
+}
+
+.cl-header {
+    font-size: 0.9rem !important;
+}
+
+/* Reduce font size for tool calls and other UI elements */
+.cl-tool-call {
+    font-size: 0.85rem !important;
+}
+
+.cl-tool-call-content {
+    font-size: 0.85rem !important;
+}

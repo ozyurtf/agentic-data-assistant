@@ -1,33 +1,36 @@
 # Core dependencies for the ArduPilot Analysis Chatbot
-openai>=1.0.0
-chainlit>=1.0.0
-python-dotenv>=1.0.0
-langchain>=0.1.0
-langchain-openai>=0.1.0
-langchain-anthropic>=0.1.0
-langchain-community>=0.1.0
-langgraph>=0.1.0
+openai>=1.54.0
+chainlit>=1.0.0,<2.0.0
+python-dotenv>=1.0.1
+langchain>=0.2.0
+langchain-openai>=0.2.0
+langchain-anthropic>=0.2.0
+langchain-community>=0.2.0
+langgraph>=0.2.0
 
 # ArduPilot log parsing
-pymavlink>=2.4.0
+pymavlink>=2.4.42
 pyserial>=3.5
 
 # Data processing and visualization
-pandas>=2.0.0
-plotly>=5.17.0
-numpy>=1.24.0
-nbformat>=4.2.0
+pandas>=2.2.0
+matplotlib>=3.8.0
+numpy>=1.26.0
+nbformat>=5.10.0
 
 # Web scraping and content loading
 firecrawl>=0.1.0
 requests>=2.31.0
 
 # FastAPI for the backend API
-fastapi>=0.104.0
-uvicorn>=0.24.0
+fastapi>=0.110.0
+uvicorn>=0.27.0
 
-# Caching
-redis>=5.0.0
 
 # Additional utilities
 asyncio-mqtt>=0.16.0
+slowapi>=0.1.9
+
+# Additional dependencies for compatibility
+pydantic>=2.0.0
+typing-extensions>=4.0.0

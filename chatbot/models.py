@@ -20,7 +20,7 @@ class FileStatus(BaseModel):
     file_id: Optional[str] = None
     filename: Optional[str] = None
     summary: Optional[str] = None
-
+ 
 class FileInfo(BaseModel):
     file_id: str
     filename: str

@@ -1,33 +1,25 @@
 from pathlib import Path
 from models import *
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Query, Body
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Body
 from dotenv import load_dotenv
-from langchain_community.embeddings import OpenAIEmbeddings
-from contextlib import asynccontextmanager
-from concurrent.futures import ThreadPoolExecutor
-import json
 from typing import Dict, List
 from collections import defaultdict
 from pymavlink import mavutil
 from fastapi.responses import JSONResponse
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from fastapi import Request
 load_dotenv()
 
 upload_dir = Path("files")
 upload_dir.mkdir(exist_ok=True)
-executor = ThreadPoolExecutor(max_workers=4)
 file_stack = defaultdict(list)
 cached_data = {}
 
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    yield
-    executor.shutdown(wait=True)
-
 app = FastAPI(title="Drone Log API", 
               description="API for processing drone flight logs", 
-              version="1.0.0",
-              lifespan=lifespan)
+              version="1.0.0")
 
 app.add_middleware(CORSMiddleware,
                    allow_origins = ["http://localhost:3000", "http://localhost:8080"], 
@@ -35,8 +27,17 @@ app.add_middleware(CORSMiddleware,
                    allow_methods = ["GET", "POST", "DELETE"],
                    allow_headers = ["*"])
 
+def get_user_id(request: Request):
+    return request.headers.get("user-id", request.client.host)
+
+limiter = Limiter(key_func=get_user_id)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
 @app.post("/api/files/{file_id}", response_model = FileReceiveResponse, status_code = 201, description = "Upload a drone flight log file")
-async def receive_file(file_id: str, file: UploadFile = File(...), user_id: str = Header(alias="user-id")):
+@limiter.limit("10/hour")
+async def receive_file(request: Request, file_id: str, file: UploadFile = File(...), user_id: str = Header(alias="user-id")):
     """
     Receives a drone flight log file via POST request and temporarily saves it to the local filesystem.
 
@@ -78,9 +79,10 @@ async def receive_file(file_id: str, file: UploadFile = File(...), user_id: str 
         if file_path.exists():
             file_path.unlink()
         raise HTTPException(status_code = 500, detail = f"Failed to upload file: {str(e)}")
-    
+
 @app.post("/api/process", description="Process a drone flight log file")
-async def process_file(col_map: Dict[str, List[str]] = Body(...), user_id: str = Header(alias="user-id")):
+@limiter.limit("30/hour") 
+async def process_file(request: Request, col_map: Dict[str, List[str]] = Body(...), user_id: str = Header(alias="user-id")):
     """
     Processes the most recently uploaded drone flight log file for a specific user.
 
@@ -128,7 +130,7 @@ async def process_file(col_map: Dict[str, List[str]] = Body(...), user_id: str =
             
             # Cache the newly processed data for each message type
             for msg_type in rem_msg_types:
-                cafche_key = (user_id, file_data["file_path"], msg_type, tuple(sorted(col_map[msg_type])))
+                cache_key = (user_id, file_data["file_path"], msg_type, tuple(sorted(col_map[msg_type])))
                 cached_data[cache_key] = data[msg_type]
             print(f"Data processed and cached for {len(rem_msg_types)} message types.")
                 
@@ -149,7 +151,20 @@ async def process_file(col_map: Dict[str, List[str]] = Body(...), user_id: str =
 
     
 @app.get("/api/files", description="Get the most recent uploaded file for the user")
-async def get_file(user_id: str = Header(alias="user-id")):
+@limiter.limit("100/minute")
+async def get_file(request: Request, user_id: str = Header(alias="user-id")):
+    """ 
+    Retrieves the most recently uploaded file for a specific user.
+
+    - Requires a `user-id` header.
+    - If no files are available for the user, returns a 404 error.
+    - Returns the metadata of the most recent file uploaded by the user.
+    - On error, returns a 500 response with error details.
+    """
+    print(f"DEBUG: user_id received: {user_id}")
+    print(f"DEBUG: file_stack keys: {list(file_stack.keys())}")
+    print(f"DEBUG: file_stack for this user: {file_stack.get(user_id, 'NOT_FOUND')}")
+        
     if user_id not in file_stack or not file_stack[user_id]:
         raise HTTPException(status_code=404, detail="No files available for this user")
     user_stack = file_stack[user_id]
@@ -157,16 +172,30 @@ async def get_file(user_id: str = Header(alias="user-id")):
     return file_data
 
 @app.delete("/api/files", description="Delete the most recent uploaded file for the user")
-async def delete_file(user_id: str = Header(...)):
+@limiter.limit("5/minute")
+async def delete_file(request: Request, user_id: str = Header(...)):
+    """
+    Deletes the most recently uploaded file for a specific user.
+
+    - Requires a `user-id` header.
+    - If no files are available for the user, returns a 404 error.
+    - Deletes the most recent file from the user's file stack.
+    - Removes the file from the local filesystem.
+    """
     if user_id not in file_stack or not file_stack[user_id]:
         raise HTTPException(status_code=404, detail="No files available for this user")
     user_stack = file_stack[user_id]
     file_data = user_stack.pop()
-    file_path = file_data['file_path']
+    file_path = Path(file_data['file_path'])  # Convert to Path object
     if file_path.exists():
         file_path.unlink()
     return {"message": f"Top file '{file_data['file_id']}' deleted successfully"}
 
 @app.get("/health")
 async def health_check():
+    """
+    Checks the health of the API.
+    - Returns a 200 status code with a message indicating the API is healthy.
+    - On error, returns a 500 response with error details.
+    """
     return {"status": "healthy"}
