@@ -102,16 +102,20 @@ export default {
                 const userId = 'admin'
                 const formData = new FormData()
                 formData.append('file', file)
-                const API_BASE_URL = 'http://127.0.0.1:8001'
+                const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://127.0.0.1:8001'
+                console.log('Using API Base URL:', API_BASE_URL)
                 const response = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
                     method: 'POST',
                     headers: { 'user-id': userId },
                     body: formData
                 })
                 if (response.ok) {
-                    console.log('File sent to chatbot successfully')
+                    console.log('File sent to chatbot successfully for user:', userId)
+                    const responseData = await response.json()
+                    console.log('Response data:', responseData)
                 } else {
-                    console.error('Failed to send file to chatbot')
+                    console.error('Failed to send file to chatbot. Status:', response.status)
+                    console.error('Response text:', await response.text())
                 }
             } catch (error) {
                 console.error('Error sending file to chatbot:', error)

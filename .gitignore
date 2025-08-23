@@ -83,4 +83,5 @@ analysis-1.ipynb
 .env
 exploratory-data-analysis.ipynb
 index.html
-
+redis.ipynb
+anomaly-template.txt

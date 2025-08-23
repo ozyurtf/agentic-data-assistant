@@ -1,824 +1,884 @@
-import ast
-import pandas as pd
-import re
-import json
-import asyncio
-import io 
-import os 
-import time
-from typing import Dict, List, TypedDict, Annotated, Any
-from langgraph.graph import StateGraph, START, END
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage, SystemMessage
-from langchain_anthropic import ChatAnthropic
-from langchain_openai import ChatOpenAI
-from langchain_core.prompts import PromptTemplate
+from typing import Literal
 from langchain_core.tools import tool
-from langchain_community.document_loaders import WebBaseLoader
-from langchain_community.document_loaders.firecrawl import FireCrawlLoader
-from chainlit.types import ThreadDict
-from main import file_stack
-import requests
-import traceback
-from pymavlink import mavutil
-from matplotlib import pyplot as plt
-from collections import defaultdict
-from openai import AsyncOpenAI
+from langchain_openai import ChatOpenAI
+from langgraph.prebuilt import ToolNode
+from langchain.schema.runnable.config import RunnableConfig
 import chainlit as cl
 from dotenv import load_dotenv
-from json import load
+from langchain_community.document_loaders.firecrawl import FireCrawlLoader
+from typing import Annotated
+from typing_extensions import TypedDict
+from langgraph.graph import END, StateGraph, START
+from langgraph.graph.message import MessagesState
+from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+import requests
+from pymavlink import mavutil
+import ast
+import pandas as pd
+from collections import defaultdict
+from langchain_core.prompts import PromptTemplate
+import os
+import matplotlib
+import matplotlib.pyplot as plt
+from chainlit.types import ThreadDict
+import threading
+import asyncio
 import hashlib
+import json
+matplotlib.use('Agg') 
 
 load_dotenv()
-client = AsyncOpenAI()
-cl.instrument_openai()
 base_url = os.getenv("API_BASE_URL")
-settings = {"model": "gpt-4o-mini", "temperature": 0.7, "max_tokens": 1000}
 
-# Global variable to hold the current message for streaming
-current_streaming_msg = None
-
-# Workflow functions with streaming integration
-model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-
-# ArduPilot Analysis State
-class ArduPilotAnalysisState(TypedDict):
-    query: str
-    user_id: str
-    file_id: str
-    web_content: str
-    msg_context: str
-    col_map: Dict[str, List[str]]
-    data: Dict[str, Any] 
-    tool_decisions: List[str]
-    tools_completed: List[str]
-    tool_results: List[str]
-    final_answer: str
-    chat_history: Annotated[List[BaseMessage], "The messages in the conversation"]
-    
 def get_user_id():
     """Get user ID from Chainlit session"""
     user = cl.user_session.get("user")
     return user.identifier if user and hasattr(user, "identifier") else "anonymous"
 
+def filter_data() -> dict:
+    """
+    Filter the data based on the col_map.
+    """
+    filtered_data = {}
+    data = cl.user_session.get("data")
+    col_map = cl.user_session.get("col_map")
+    for msg_type, rows in data.items():
+        if msg_type in col_map:
+            filtered_data[msg_type] = rows[col_map[msg_type]]            
+    return filtered_data
 
-async def stream_text_word_by_word(text: str, prefix: str = ""):
-    """Helper function to stream text word by word"""
-    global current_streaming_msg
-    if current_streaming_msg and text:
-        if prefix:
-            await current_streaming_msg.stream_token(f"\n\n**{prefix}:**\n")
-        
-        # Split by words and spaces to preserve formatting
-        tokens = re.split(r'(\s+)', str(text))
-        for token in tokens:
-            if token:  # Include all tokens (words and spaces)
-                await current_streaming_msg.stream_token(token)
-                # Only add delay for actual words, not spaces
-                if token.strip():  # If it's a word (not just whitespace)
-                    await asyncio.sleep(0.05)  # Adjust speed as needed
-
-# Tool definitions with streaming outputs
 @tool
-def load_web_content(url: str) -> str:
+async def load_web_content(url: str) -> str:
     """
     Load web content from the given URL.
     Use this when user provides a URL and wants to extract content from it.
     """
     try:
-        if not url:
-            return "No URL provided"
-        
+        async with cl.Step(name="web scraping tool to extract web content", type="tool") as step:
+            if not url:
+                step.output = "No URL provided"
+                return "No URL provided"
+            
+        # Attention: Web content is forgotton after the query is answered. 
+        step.output = f"Loading web content from the {url}...\n"
         loader = FireCrawlLoader(url=url, mode="scrape")
         docs = loader.load()
         content = " ".join(doc.page_content for doc in docs)
-        return f"Successfully loaded content from {url}. Content length: {len(content)} characters."
+        step.output += "Web content loaded successfully..."
+        cl.user_session.set("web_content", content)
+        return {"web_content": content}
     except Exception as e:
+        step.output = f"Error loading web content: {str(e)}"
         return f"Error loading web content: {str(e)}"
 
 @tool
-def extract_data(query: str, web_content: str = "") -> str:
+async def extract_data(query: str) -> str:
     """
-    Find the most relevant log message type(s) and the most relevant list of fields to the user query,
+    This tool is used to extract the relevant data from the log file.
+    It will find the most relevant log message type(s) and the most relevant list of fields to the user query,
     read the data of these message types and fields from the file, and return the results.
-    Use this when you need to read the file to answer the user's query.
-    """
-    try:
-        user_id = get_user_id()        
-        headers = {"user-id": user_id}
-        response = requests.get(f"{base_url}/api/files", headers=headers)
-        if response.status_code == 200:
-            file_data = response.json()
-            file_path = file_data.get("file_path", "")
-            file_id = file_data.get("file_id", "")
-            if file_path:
-                print(f"Using uploaded file: {file_path}")
-            else:
-                return {
-                    "msg_context": "",
-                    "col_map": {},
-                    "query": query, 
-                    "data": {},
-                    "error": "No file uploaded. Please upload a log file first."
-                }
-        else:
-            return {
-                "msg_context": "",
-                "col_map": {},
-                "query": query, 
-                "data": {},
-                "error": "No file uploaded. Please upload a log file first."
-            }
-        
-        # Check if this is a new file (different file_id)
-        if state.get("file_id") != file_id:
-            # New file uploaded, reset msg_context
-            state["msg_context"] = ""
-            state["file_id"] = file_id
-        
-        # Step 1: Read message types and fields
-        mlog = mavutil.mavlink_connection(file_path)
-        msg_info = defaultdict(set)
-
-        if state["msg_context"] == "":
-            while True:
-                msg = mlog.recv_match()
-                if msg is None:
-                    break
-                msg_type = msg.get_type()
-                msg_info[msg_type].update(msg.to_dict().keys())
-
-            summary = {k: sorted(v) for k, v in msg_info.items()}
-            lines = []
-            for msg_type, fields in sorted(summary.items()):
-                lines.append(f"Log message type: {msg_type}")
-                lines.append(f"Fields: {fields}")
-                lines.append("")
-            
-            msg_context = "\n".join(lines)
-            state["msg_context"] = msg_context
-        else:
-            msg_context = state["msg_context"]
-
-        # Step 2: Extract column mapping
-        template = """
-        User query: {query}
-
-        Based on the field descriptions below:
-        {web_content}
-
-        Identify the most relevant log message type(s) and the most relevant list of fields within them
-        needed to answer the user query. 
-        
-        **Important:**
-        If the user asks the anomalies/issues observed,you can check for ERR data if it is in this list: {msg_context} 
-
-        In addition, here are some examples of anomalies/issues that you can be seen in different data types:
-
-        - Attitude data: There might be large and persistent gaps between the desired roll angle and actual roll angle, 
-        between the desired pitch angle and actual pitch angle, or between the desired yaw angle and actual yaw angle. 
-        Alternatively, the actual values might constantly oscillate around the desired values. The vehicle might also appear level while the pitch slowly drifts.
-        
-        - Barometer data: Pressure readings might not change or may change slowly despite the vehicle being in motion. 
-        There could also be a temperature failure, where the temperature jumps up or down by a large amount. 
-        Different barometer instances (I = 0, I = 1, I = 2, etc.) might show very different readings, or the H = false (unhealthy) flag might be set.
-        
-        - ARM data: There might be multiple ARM messages with Force = True (meaning the pilot forced arming despite failed safety checks). 
-        ARM messages may also occur within short time periods (seconds/minutes apart). 
-        Example: ArmState: False -> True -> False -> True -> False under 2 minutes. 
-        ARM messages might also show ArmState changing from True -> False during flight.
-
-        - RCIN data: Channels might show failsafe values or completely missing data. 
-        Failsafe values are predetermined "safe" control positions the vehicle automatically uses when it loses radio connection. 
-        Common failsafe values are:
-            + Throttle (C3): 1000 µs (minimum/idle power)
-            + Roll/Pitch (C1/C2): 1500 µs (centered/level flight)
-            + Yaw (C4): 1500 µs (no turning)
-        Physical joysticks on the pilot's transmitter may also fail to produce the expected signal values. 
-        
-        Normal behavior:
-        - Stick centered (C1): 1500 µs
-        - Stick fully left/down (C1): 1000 µs
-        - Stick fully right/up (C1): 2000 µs
-        
-        Drift problem example:
-        - Stick centered: C1 = 1520 µs (should be 1500 µs)
-        - Stick left: C1 = 1020 µs (should be 1000 µs)
-        Stick right: C1 = 2020 µs (should be 2000 µs)
-        
-        As a result, even when the pilot thinks they’re flying straight, the drone constantly banks right because 
-        the "neutral" position is actually sending a slight right command (1520 µs instead of 1500 µs).
-        
-        Channel values might also jump rapidly or show excessive corrections. 
-        For instance, C2 might oscillate rapidly between 1400–1600 µs instead of smooth values, 
-        or exhibit high-frequency control inputs due to electrical interference, damaged transmitter, pilot stress/inexperience, vibration affecting the transmitter, etc.
-
-        **Important:**  
-        - It is VERY IMPORTANT that the log message type(s) and field(s) you return are part of the log message type(s) in the msg_context: {msg_context}.
-        The name of the log message type(s) and field(s) in the uploaded file might now always be the same as the ones in the msg_context. 
-        For instance, you might see the log message type "ATTITUDE" in the uploaded file while you see "ATT" in the the msg_context. 
-        A user might upload a file, ask for the maximum value of a pitch and it can be found in the "ATTITUDE" log message type in one file 
-        and in the "ATT" log message type in the next file uploaded. Be careful about these. Always return the log message type(s) and field(s)
-        in the msg_context.
-        - Respond with ONLY one Python dictionary in this exact format, no extra text or explanation:
-
-        {{'LogMessageType': ['field1', 'field2', ...\n], ...\n}}
-
-        - Replace 'LogMessageType' and field names with your best guesses, based on the provided field descriptions.  
-        - Consider relationships between fields. For example, if the query asks for the time when the highest longitude is observed, 
-        return both the longitude field and the time field together.  
-        - Only include fields necessary to answer the query, avoid irrelevant ones.  
-        - Do NOT output placeholders or quotes around keys like 'log message type'.  
-        - Do NOT include anything other than the Python dictionary.
-        - If you are not sure about the log message types and/or field names, ask the user for clarification.
-        """
-
-        prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context"], template=template)
-        model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-        chain = prompt | model
-        result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context})
-        col_map = ast.literal_eval(result.content.strip())
-        
-                
-        # Step 3: Read data using the API endpoint
-        user_id = get_user_id()
-        headers = {"user-id": user_id}
-        
-        response = requests.post(f"{base_url}/api/process", json=col_map, headers=headers)
-                
-        if response.status_code != 200:
-            return {
-                "msg_context": msg_context,
-                "col_map": col_map,
-                "query": query, 
-                "data": {},
-                "error": f"API request failed with status {response.status_code}: {response.text}"
-            }
-        
-        response_data = response.json()
-        if not response_data.get("success"):
-            return {
-                "msg_context": msg_context,
-                "col_map": col_map,
-                "query": query, 
-                "data": {},
-                "error": f"API processing failed: {response_data.get('error', 'Unknown error')}"
-            }
-        
-        data = response_data["data"]
-        result_data = {}
-        for msg_type, rows in data.items():
-            if rows:
-                df = pd.DataFrame(rows)
-                df.dropna(axis=1, how='all', inplace=True) 
-                result_data[msg_type] = df
-                        
-        return {
-            "msg_context": msg_context,
-            "col_map": col_map,
-            "query": query, 
-            "data": result_data,
-            "file_id": file_id
-        }   
-            
-    except Exception as e:
-        # Raise the error
-        return {
-            "msg_context": "",
-            "col_map": {},
-            "query": query, 
-            "data": {},
-            "error": f"Error in extract_data: {str(e)}"
-        }    
-
-# Analysis tools (these will be enhanced with streaming)
-@tool
-def maximum(data_description: str): 
-    """Calculate the maximum value of numeric fields in the data."""
-    return "Maximum calculation tool called - processing will be handled by workflow"
-
-@tool  
-def minimum(data_description: str):
-    """Calculate the minimum value of numeric fields in the data."""
-    return "Minimum calculation tool called - processing will be handled by workflow"
-
-@tool
-def average(data_description: str):
-    """Calculate the average value of numeric fields in the data."""
-    return "Average calculation tool called - processing will be handled by workflow"
-
-@tool
-def total_sum(data_description: str):
-    """Calculate the sum of numeric fields in the data."""
-    return "Sum calculation tool called - processing will be handled by workflow"        
-
-@tool
-def when_maximum(data_description: str):
-    """Find when/where the maximum value occurred, including timestamp and context."""
-    return "When maximum tool called - processing will be handled by workflow"
-
-@tool
-def when_minimum(data_description: str):
-    """Find when/where the minimum value occurred, including timestamp and context."""
-    return "When minimum tool called - processing will be handled by workflow"
-
-@tool
-def visualize(data_description: str):
-    """Visualize the data in a plot."""
-    return "Visualization tool called - processing will be handled by workflow"
-
-async def decide_tools_to_use(state: ArduPilotAnalysisState) -> ArduPilotAnalysisState:
-    """LLM decides which tools to use based on the user query from ALL available tools."""
-    await stream_text_word_by_word("Analyzing query to determine required tools...\n", "Tool Selection")
-    
-    # Check if URL is present in the query
-    url_pattern = re.compile(r'(?:(?:https?|ftp)://|www\.)\S+', re.IGNORECASE)
-    has_url = bool(url_pattern.search(state["query"]))
-        
-    template = """
-    User Query: {query}
-    
-    Available Tools (choose any combination needed):
-    
-    Tools:
-    1. load_web_content: Extract the content of the given URL.
-    2. extract_data: Extract the data most relevant to the user query so that it can be used to answer the user's query.
-    3. maximum: Use this if the user's query requires calculating a maximum value of the given data.
-    4. minimum: Use this if the user's query requires calculating a minimum value of the given data.
-    5. average: Use this if the user's query requires calculating an average value of the given data.
-    6. total_sum: Use this if the user's query requires calculating a sum of the given data.
-    7. when_maximum: Use this if the user's query requires finding when the maximum value occurred in the given data.
-    8. when_minimum: Use this if the user's query requires finding when the minimum or first instance of a value occurred in the given data.
-    9. visualize: Use this if the user's query requires visualizing the given data.
-    
-    Based on the user query and these rules, determine which tools should be used. 
-    
-    Sometimes you might need only one tool. Sometimes you might need multiple tools. And sometimes you might not need any tool at all.
-    When choosing the tools, think about which one would be useful to answer the user's query.
-
-    **Important:** 
-    - Consider the conversation context here {chat_history}. If the user is asking follow-up questions or referring to previous analysis, 
-    you may need different tools or no tools at all.
-    - Also, if the user is asking for a visualization, first extract relevant data using the extract_data tool. 
-    After this, the data that will be used for visualization will be added to the state. 
-    And then you can use this data and visualize it by using the visualize tool. 
-    - Don't visualize the data unless you are explicitly asked.
-    - If the user is asking for anomalies/issues, look at the data you have available after using the extract_data tool and 
-    check for issues/anomalies in the data. You can utilize tools such as maximum, minimum, average, total_sum, when_maximum, when_minimum, etc., 
-    to check for anomalies and issues but this is optional. If you think these tools won't be useful, you can simply look at the raw data
-    on your own and try to find the anomalies/issues. 
-
-    Respond with ONLY the tool name(s) separated by commas, or "none" if no tools are needed.
     """
     
-    prompt = PromptTemplate(input_variables=["query", "chat_history"], template=template)
-    
-    model_local = ChatAnthropic(model="claude-sonnet-4-20250514", temperature=0)
-    chain = prompt | model_local
-    result = chain.invoke({
-        "query": state["query"],
-        "chat_history": state["chat_history"]
-    })
-    
-    # Parse the response to get list of tools
-    tool_response = result.content.strip().lower()
-    
-    if tool_response == "none":
-        state["tool_decisions"] = []
-        state["final_answer"] = "Hello! I can help you analyze your files and extract content from documentation. Please provide a URL to extract content from, or ask a question about log file data."
-        await stream_text_word_by_word("No tools required for this query.")
-    else:
-        tools = [tool.strip() for tool in tool_response.split(',')]
-        state["tool_decisions"] = tools
-    
-    state["tools_completed"] = []
-    state["tool_results"] = []
-    
-    return state
-
-async def execute_unified_tools(state: ArduPilotAnalysisState) -> ArduPilotAnalysisState:
-    """Execute ANY tool selected by the LLM from the unified tool set with streaming output."""
-    if not state["tool_decisions"]:
-        return state
-    
-    # Find the next tool to execute
-    pending_tools = [tool for tool in state["tool_decisions"] if tool not in state["tools_completed"]]
-    
-    if not pending_tools:
-        await stream_text_word_by_word("All selected tools have been executed\n")
-        return state
-    
-    current_tool = pending_tools[0]
-    
-    try:
-        if current_tool == "load_web_content": 
-            await stream_text_word_by_word("Extracting URL from query...\n")
+    async with cl.Step(name="data extraction tool to find relevant data", type="tool") as step:
+        try:
+            # Add thinking process to the step
+            step.output = "Starting data extraction process...\n"
             
-            # Extract URL from query
-            url_pattern = re.compile(r'(?:(?:https?|ftp)://|www\.)\S+', re.IGNORECASE)
-            match = url_pattern.search(state["query"])
-            url = match.group(0) if match else ""
+            user_id = get_user_id()        
+            headers = {"user-id": user_id}
+            response = requests.get(f"{base_url}/api/files", headers=headers)
             
-            if url:
-                await stream_text_word_by_word(f"Loading content from: {url}...\n")
+            step.output += "Retrieved file information from API\n"
             
-            # Call the actual tool function
-            tool_result = load_web_content.invoke({"url": url})
-            
-            # Update state with the results
-            if url and "Successfully loaded" in tool_result:
-                loader = FireCrawlLoader(url=url, mode="scrape")
-                docs = loader.load()
-                state["web_content"] = " ".join(doc.page_content for doc in docs)
-                await stream_text_word_by_word("Web content successfully loaded and cached for analysis\n")
-            
-            state["tool_results"].append(f"Web content extraction result:\n{tool_result}")
-            
-        elif current_tool == "extract_data":
-            await stream_text_word_by_word("Reading log messages from your file...\n")
-            await stream_text_word_by_word("Extracting message types and fields...\n")
-            
-            # Debug: Print current state
-            print(f"Current state query: {state.get('query', 'NOT SET')}")
-            
-            # Call the actual tool function
-            tool_result = extract_data.invoke({
-                "query": state["query"],
-                "web_content": state.get("web_content", ""),
-            })
-            
-            # Update the state for downstream analysis tools
-            if tool_result:
-                if "error" in tool_result:
-                    await stream_text_word_by_word(f"Error during data extraction: {tool_result['error']}\n")
-                    state["tool_results"].append(f"Data extraction error: {tool_result['error']}")
+            file_id = ""
+            if response.status_code == 200:
+                file_data = response.json()
+                file_path = file_data.get("file_path", "")
+                file_id = file_data.get("file_id", "")
+                if file_path:
+                    step.output += f"Using uploaded file: {file_path}\n"
                 else:
-                    state["msg_context"] = tool_result["msg_context"]
-                    state["col_map"] = tool_result["col_map"]
-                    state["query"] = tool_result["query"]
-                    state["data"] = tool_result["data"]
-                    state["file_id"] = tool_result["file_id"]
+                    step.output += "No file uploaded. Please upload a log file first.\n"
+                    return f"No file uploaded. Please upload a log file first."
+            else:
+                step.output += f"API request failed with status {response.status_code}\n"
+                return f"API request failed with status {response.status_code}: {response.text}"
+            
+            if cl.user_session.get("file_id") != file_id:
+                step.output += "New file detected, fetching message schema...\n"
+                
+                # Get schema from API instead of reading file directly
+                schema_response = requests.get(f"{base_url}/api/files/{file_id}/schema", headers=headers)
+                
+                if schema_response.status_code == 200:
+                    schema_data = schema_response.json()
+                    schema = schema_data["schema"]
                     
-                    await stream_text_word_by_word("Relevant message types and fields extracted\n")
-                    await stream_text_word_by_word(f"Data frames extracted for {len(tool_result['data'])} message types\n")
-            
-            state["tool_results"].append(f"Data extraction and analysis result:\n{tool_result}")
-        
-        elif current_tool == "visualize":
-            await stream_text_word_by_word("Visualizing data...\n")
-            await stream_text_word_by_word("Generating visualization code...\n")
-            
-            sampled_data = {}
-            for key in state["data"]:
-                sampled_data[key] = state["data"][key].sample(100, replace = True)
+                    # Format for msg_context
+                    lines = []
+                    for msg_type, fields in sorted(schema.items()):
+                        lines.append(f"Log message type: {msg_type}")
+                        lines.append(f"Fields: {fields}")
+                        lines.append("")
+                    
+                    msg_context = "\n".join(lines)
+                    cl.user_session.set("msg_context", msg_context)
+                    cl.user_session.set("data", {})
+                    cl.user_session.set("file_id", file_id)
+                else:
+                    return "Failed to get file schema from API"
+            else:
+                msg_context = cl.user_session.get("msg_context")
 
-            plt.rcParams.update({'figure.dpi': 150,})                
-
+            # Step 2: Extract column mapping
+            step.output += "Using AI to identify relevant fields for your query...\n"
+            step.output += f"Query: '{query}'\n"
+            
             template = """
             User query: {query}
 
-            I have a dataframe(s) in a dictionary called `state["data"]`. 
-            Here is how the 100 rows sampled from it looks like: {sampled_data}. 
+            Based on the field descriptions below:
+            {web_content}
 
-            Write a Plotly function in Python to visualize the data so that I can execute it and get the plot.
+            Identify the most relevant log message type(s) and the most relevant list of fields within them
+            needed to answer the user query. 
 
-            Only give the code, nothing else. Don't include ```python or ``` or anything else. 
-            Don't explain the data.
-
-            Important: Make the plot look nice, readable, and high quality. 
-            Don't use any other libraries than matplotlib, numpy, pandas, datetime, and other standard libraries
-            that are already installed in the system.
-            And make sure that the code you generate can be run with 1 click without needing any modification/change.
+            ## IMPORTANT NOTE: 
+            You don't have to call any of these tools all the time. Sometimes the user might 
+            ask a follow up question or ask about something that can be answered from the chat history. 
+            In those cases, don't call the tools that would normally be called.
+            and just return the answer from the chat history. 
             
-            Important: `state[data]` already exists, don't create a new one!
-            If there are multiple dataframes, give separate plots for each one.
+            CRITICAL: Call this tool and get all the relevant data based on the user query ONCE in one call.       
 
-            Also, do not include any Python code in your response. 
+            **Which data I should extract if the user asks for the anomalies/issues observed during the flight?**
+            Unless the user is specific about the data he wants to check for anomalies/issues, 
+            you can check for ERR data and other data types that makes sense to you based on the user query if they are in this list: {msg_context} 
+            
+            IMPORTANT RULES:  
+            - It is VERY IMPORTANT that the log message type(s) and field(s) you return are part of the log message type(s) in the msg_context: {msg_context}.
+            The name of the log message type(s) and field(s) in the uploaded file might now always be the same as the ones in the msg_context. 
+            For instance, you might see the log message type "ATTITUDE" in the uploaded file while you see "ATT" in the the msg_context. 
+            A user might upload a file, ask for the maximum value of a pitch and it can be found in the "ATTITUDE" log message type in one file 
+            and in the "ATT" log message type in the next file uploaded. Be careful about these. Always return the log message type(s) and field(s)
+            in the msg_context.
+            - Respond with ONLY one Python dictionary in this exact format, no extra text or explanation:
+
+            {{'LogMessageType': ['field1', 'field2', ...\n], ...\n}}
+
+            - Replace 'LogMessageType' and field names with your best guesses, based on the provided field descriptions.  
+            - Consider relationships between fields. For example, if the query asks for the time when the highest longitude is observed, 
+            return both the longitude field and the time field together.  
+            - Only include fields necessary to answer the query, avoid irrelevant ones.  
+            - Do NOT output placeholders or quotes around keys like 'log message type'.  
+            - Do NOT include anything other than the Python dictionary.
+            - If you are not sure about the log message types and/or field names, ask the user for clarification.
             """
 
-            prompt = PromptTemplate(input_variables=["query", "sampled_data"], template=template)
-            model = ChatOpenAI(model="gpt-4o-mini", temperature=0)
-            chain = prompt | model
-            result = chain.invoke({"query": state["query"], "sampled_data": sampled_data})
-            code = result.content.strip()
-            code = code.replace("plt.show()", "")  
-            
-            # Execute the visualization code
-            exec(code)
-            
-            # Get the current figure and create cl.Pyplot element
-            fig = plt.gcf()
-            fig.set_dpi(300)
-            
-            await stream_text_word_by_word("Generated plot.\n")
-            
-            # Use cl.Pyplot for better visualization display
-            elements = [
-                cl.Pyplot(name="plot", figure=fig, display="inline"),
-            ]
-            
-            await cl.Message(
-                content="Here is your visualization:",
-                elements=elements,
-            ).send()
-            
-            # Clear the figure to free memory
-            plt.close(fig)                
-            
-        # Analysis tools (require data to be available)
-        elif current_tool in ["maximum", "minimum", "average", "total_sum", "when_maximum", "when_minimum"]:
-            if not state.get("data"):
-                error_msg = f"{current_tool} requires data to be extracted first using extract_data"
-                await stream_text_word_by_word(error_msg)
-                state["tool_results"].append(f"Analysis tool error:\n{error_msg}")
+            web_content = cl.user_session.get("web_content")
+            if web_content == "":
+                step.output += "No web content available.\n"
             else:
-                data = state["data"]
-                result_parts = []
+                step.output += "Web content available.\n"
                 
-                await stream_text_word_by_word(f"Computing {current_tool} values...\n")
-                
-                if current_tool == "maximum":
-                    for msg_type, df in data.items():
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty:
-                            max_values = numeric_cols.max()
-                            result_parts.append(f"Maximum values in {msg_type}:")
-                            for col, val in max_values.items():
-                                result_parts.append(f"  {col}: {val}")
-                                
-                elif current_tool == "minimum":
-                    for msg_type, df in data.items():
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty:
-                            min_values = numeric_cols.min()
-                            result_parts.append(f"Minimum values in {msg_type}:")
-                            for col, val in min_values.items():
-                                result_parts.append(f"  {col}: {val}")
-                                
-                elif current_tool == "average":
-                    for msg_type, df in data.items():
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty:
-                            avg_values = numeric_cols.mean()
-                            result_parts.append(f"Average values in {msg_type}:")
-                            for col, val in avg_values.items():
-                                result_parts.append(f"  {col}: {val:.2f}")
 
-                elif current_tool == "total_sum": 
-                    for msg_type, df in data.items(): 
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty: 
-                            sum_values = numeric_cols.sum()
-                            result_parts.append(f"Sum values in {msg_type}:")
-                            for col, val in sum_values.items(): 
-                                result_parts.append(f"  {col}: {val}")
-                
-                elif current_tool == "when_maximum":
-                    await stream_text_word_by_word("Finding timestamps and context for maximum values...\n")
-                    for msg_type, df in data.items():
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty:
-                            result_parts.append(f"When maximum values occurred in {msg_type}:")
-                            for col in numeric_cols.columns:
-                                max_idx = df[col].idxmax()
-                                max_row = df.loc[max_idx]
-                                result_parts.append(f"  Maximum {col} ({max_row[col]}) occurred at:")
-                                # Include all available context from that row
-                                for field, value in max_row.items():
-                                    if field != col:  # Don't repeat the max value itself
-                                        result_parts.append(f"    {field}: {value}")
-                                result_parts.append("")  # Add space between fields
-                
-                elif current_tool == "when_minimum":
-                    await stream_text_word_by_word("Finding timestamps and context for minimum values...\n")
-                    for msg_type, df in data.items():
-                        numeric_cols = df.select_dtypes(include=['number'])
-                        if not numeric_cols.empty:
-                            result_parts.append(f"When minimum values occurred in {msg_type}:")
-                            for col in numeric_cols.columns:
-                                min_idx = df[col].idxmin()
-                                min_row = df.loc[min_idx]
-                                result_parts.append(f"  Minimum {col} ({min_row[col]}) occurred at:")
-                                # Include all available context from that row
-                                for field, value in min_row.items():
-                                    if field != col:  # Don't repeat the min value itself
-                                        result_parts.append(f"    {field}: {value}")
-                                result_parts.append("")  # Add space between fields
-                
-                tool_result = "\n".join(result_parts)
-                
-                state["tool_results"].append(f"Results from {current_tool} tool:\n{tool_result}")
+            prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context"], template=template)
+            # Use the global model that's already configured
+            chain = prompt | final_model
+            result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context})
+            col_map = ast.literal_eval(result.content.strip())
+            cl.user_session.set("col_map", col_map)
             
-        elif current_tool == "none":
-            tool_results = "No tools required."
-            await stream_text_word_by_word(tool_results)
-            state["tool_results"].append(tool_results)
+            step.output += f"AI identified relevant fields: {col_map}\n"
             
-        # Mark tool as completed
-        state["tools_completed"].append(current_tool)
-        
-    except Exception as e:
-        error_msg = f"Error executing {current_tool}: {str(e)}"
-        await stream_text_word_by_word(error_msg)
-        state["tool_results"].append(f"Tool execution error:\n{error_msg}")
-        state["tools_completed"].append(current_tool)  # Mark as completed to avoid infinite loop
-    
-    return state
+            # Step 3: Read data using the API endpoint
+            step.output += "Extracting data from log file using API...\n"
+            
+            user_id = get_user_id()
+            headers = {"user-id": user_id}
+            
+            response = requests.post(f"{base_url}/api/process", json=col_map, headers=headers)
+                    
+            if response.status_code != 200:
+                step.output += f"API request failed with status {response.status_code}\n"
+                return f"API request failed with status {response.status_code}: {response.text}"
+                
+            response_data = response.json()
+            if not response_data.get("success"):
+                step.output += f"API processing failed: {response_data.get('error', 'Unknown error')}\n"
+                return f"API processing failed: {response_data.get('error', 'Unknown error')}"
 
-def check_unified_tool_completion(state: ArduPilotAnalysisState) -> str:
-    """Check if all selected tools have been executed."""
-    if not state["tool_decisions"]:
-        return "generate_final_answer"  # No tools were selected
-    
-    pending_tools = [tool for tool in state["tool_decisions"] if tool not in state["tools_completed"]]
-    
-    if pending_tools:
-        return "execute_tools"  # More tools to execute
-    else:
-        return "generate_final_answer"  # All tools completed, generate final answer
 
-async def generate_final_answer(state: ArduPilotAnalysisState) -> ArduPilotAnalysisState:
-    """Generate the final answer based on all collected information."""
-    
-    await stream_text_word_by_word("Generating comprehensive answer based on analysis results...\n", "Final Analysis")
-    
-    # Combine all tool results
-    all_tool_results = "\n\n".join(state["tool_results"])
-    
-    template = """
-    User Query: {query}
-    
-    Analysis Results from Multiple Tools:
-    {tool_results}
-    
-    Web Content Context: {web_content}
-    
-    Based on the analysis results from all the tools used and the context from the ArduPilot documentation, 
-    provide a comprehensive and clear answer to the user's query. Make sure to address all parts of the query.
+            step.output += "Successfully retrieved data from API\n"
+            
+            data = response_data["data"]
+            
+            final_data = {}
+            
+            step.output += "Processing and cleaning data...\n"
+            
+            for msg_type, rows in data.items():
+                if rows:
+                    df = pd.DataFrame(rows)
+                    df.dropna(axis=1, how='all', inplace=True) 
+                    final_data[msg_type] = df
+                    step.output += f"  Processed {len(df)} rows for {msg_type}\n"
+            
+            step.output += f"Data extraction completed! Extracted {len(final_data)} message types.\n"
+            cl.user_session.set("data", final_data)
+            return {"data": final_data}
+                
+        except Exception as e:
+            step.output += f"Error occurred: {str(e)}\n"
+            return f"Error in extract_data: {str(e)}"
 
-    Sometimes, the same fields can be seen in different message types. 
-    For example, the longitude and latitude fields can be seen in the GPS and AHR2 message types.
-    In this case, you should use the fields from the message type that is most relevant to the user's query 
-    and explain why you chose that message type when giving the answer.
-
-    If you don't know the answer or you are not sure, ask clarification from the user to give more specific information.
-
-    **Important:** Consider the conversation context here {chat_history}.
-    If the user is asking follow-up questions or referring to previous analysis, you may need different tools or no tools at all.
-    Also, when giving the answer, make sure that it is organized, clean, readable and in a nice format.
-    Finally, don't include any code in your response.
+@tool
+async def average(data_description: str):
     """
+    Calculate the average value of numeric fields in the data.
+    """
+    async with cl.Step(name="average tool to calculate average values", type="tool") as step:
+        step.output = "Starting average calculation process...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."
+        
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                avg_values = numeric_cols.mean()
+                result_parts.append(f"Average values in {msg_type}:")
+                
+                for col, val in avg_values.items():
+                    result_parts.append(f"  {col}: {val}")
+                    step.output += f"Calculated average for {col}: {val:.6f}\n"
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+        
+        step.output += "Average calculation completed successfully.\n"
+        return {"average": "\n".join(result_parts)}
 
-    prompt = PromptTemplate(
-        input_variables=["query", "tool_results", "web_content", "chat_history"], 
-        template=template
+@tool
+async def total_sum(data_description: str):
+    """
+    Calculate the sum of numeric fields in the data.
+    
+    """
+    async with cl.Step(name="sum tool to calculate sum of numeric fields", type="tool") as step:
+        step.output = "Starting sum calculation process...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."
+        
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                sum_values = numeric_cols.sum()
+                result_parts.append(f"Sum of numeric fields in {msg_type}:")
+                
+                for col, val in sum_values.items():
+                    result_parts.append(f"  {col}: {val}")
+                    step.output += f"Calculated sum for {col}: {val}\n"
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+        
+        step.output += "Sum calculation completed successfully.\n"
+        return {"sum": "\n".join(result_parts)}
+
+@tool
+async def maximum(data_description: str):
+    """
+    Find the maximum value and when it occurred, including timestamp and context.
+    If the user ask for only the maximum value, you can return the maximum value.
+    But if the user asks for the maximum value and when it occurred, return the maximum value and when it occurred.
+    """
+    async with cl.Step(name="maximum tool to find maximum values", type="tool") as step:
+        step.output = "Starting maximum value analysis...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."
+        
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                result_parts.append(f"When maximum values occurred in {msg_type}:")
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                for col in numeric_cols.columns:
+                    max_idx = df[col].idxmax()
+                    max_row = df.loc[max_idx]
+                    max_value = max_row[col]
+                    
+                    result_parts.append(f"Maximum {col}: {max_value}")
+                    step.output += f"Found maximum {col}: {max_value} at index {max_idx}\n"
+                    
+                    # Include all available context from that row
+                    for field, value in max_row.items():
+                        if field != col:  # Don't repeat the max value itself
+                            result_parts.append(f"    {field}: {value}")
+                    result_parts.append("")  # Add space between fields   
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+        
+        step.output += "Maximum value analysis completed successfully.\n"
+        return {"maximum": "\n".join(result_parts)}
+
+@tool
+async def minimum(data_description: str):
+    """
+    Find the minimum value and when it occurred, including timestamp and context.
+    If the user ask for only the minimum value, you can return the minimum value.
+    But if the user asks for the minimum value and when it occurred, return the minimum value and when it occurred.
+    """
+    async with cl.Step(name="minimum tool to find minimum values", type="tool") as step:
+        step.output = "Starting minimum value analysis...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."
+        
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                result_parts.append(f"When minimum values occurred in {msg_type}:")
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                for col in numeric_cols.columns:
+                    min_idx = df[col].idxmin()
+                    min_row = df.loc[min_idx]
+                    min_value = min_row[col]
+                    
+                    result_parts.append(f"  Minimum {col}: {min_value}")
+                    step.output += f"Found minimum {col}: {min_value} at index {min_idx}\n"
+                    
+                    # Include all available context from that row
+                    for field, value in min_row.items():
+                        if field != col:  # Don't repeat the min value itself
+                            result_parts.append(f"    {field}: {value}")
+                    result_parts.append("")  # Add space between fields    
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+        
+        step.output += "Minimum value analysis completed successfully.\n"
+        return {"minimum": "\n".join(result_parts)} 
+
+@tool
+async def detect_oscillations(data_description: str):
+    """
+    Detect oscillatory patterns in the data, including periodic fluctuations and recurring cycles.
+    """
+    async with cl.Step(name="oscillation detection tool to detect oscillations", type="tool") as step:
+        step.output = "Starting oscillation detection process...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."     
+
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                result_parts.append(f"Oscillation analysis for {msg_type}:")
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                # Sort by timestamp if available
+                sorted_df = df.copy()
+                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
+                if timestamp_cols:
+                    sorted_df = df.sort_values(by=timestamp_cols[0])
+                    step.output += f"Sorted data by {timestamp_cols[0]} for oscillation analysis.\n"
+                
+                for col in numeric_cols.columns:
+                    step.output += f"Analyzing oscillations in {col}...\n"
+                    
+                    values = sorted_df[col].dropna()
+                    if len(values) < 6:  # Need minimum points for oscillation detection
+                        result_parts.append(f"  {col}: Insufficient data points for oscillation analysis")
+                        continue
+                    
+                    # Method 1: Detect direction changes (peaks and troughs)
+                    direction_changes = []
+                    directions = []
+                    
+                    for i in range(1, len(values)):
+                        if values.iloc[i] > values.iloc[i-1]:
+                            directions.append('up')
+                        elif values.iloc[i] < values.iloc[i-1]:
+                            directions.append('down')
+                        else:
+                            directions.append('stable')
+                    
+                    # Count direction changes
+                    changes = 0
+                    for i in range(1, len(directions)):
+                        if directions[i] != directions[i-1] and directions[i] != 'stable' and directions[i-1] != 'stable':
+                            changes += 1
+                            direction_changes.append(i)
+                    
+                    # Method 2: Calculate standard deviation and mean for variability
+                    std_dev = values.std()
+                    mean_val = values.mean()
+                    coefficient_of_variation = std_dev / mean_val if mean_val != 0 else 0
+                    
+                    # Method 3: Detect local maxima and minima
+                    peaks = []
+                    troughs = []
+                    
+                    for i in range(1, len(values) - 1):
+                        if values.iloc[i] > values.iloc[i-1] and values.iloc[i] > values.iloc[i+1]:
+                            peaks.append((values.index[i], values.iloc[i]))
+                        elif values.iloc[i] < values.iloc[i-1] and values.iloc[i] < values.iloc[i+1]:
+                            troughs.append((values.index[i], values.iloc[i]))
+                    
+                    # Method 4: Calculate approximate frequency
+                    total_cycles = (len(peaks) + len(troughs)) / 2
+                    data_length = len(values)
+                    
+                    # Oscillation assessment
+                    oscillation_score = 0
+                    oscillation_indicators = []
+                    
+                    # High number of direction changes indicates oscillation
+                    if changes > data_length * 0.3:  # More than 30% direction changes
+                        oscillation_score += 2
+                        oscillation_indicators.append(f"High direction changes: {changes}")
+                    
+                    # High coefficient of variation indicates variability
+                    if coefficient_of_variation > 0.2:  # 20% variation
+                        oscillation_score += 1
+                        oscillation_indicators.append(f"High variability (CV: {coefficient_of_variation:.2f})")
+                    
+                    # Significant peaks and troughs
+                    if len(peaks) >= 2 and len(troughs) >= 2:
+                        oscillation_score += 2
+                        oscillation_indicators.append(f"Multiple peaks ({len(peaks)}) and troughs ({len(troughs)})")
+                    
+                    # Regular spacing between peaks/troughs (if enough data)
+                    if len(peaks) >= 3:
+                        peak_intervals = [peaks[i+1][0] - peaks[i][0] for i in range(len(peaks)-1)]
+                        if len(set(peak_intervals)) <= len(peak_intervals) * 0.5:  # Similar intervals
+                            oscillation_score += 1
+                            oscillation_indicators.append("Regular peak intervals detected")
+                    
+                    # Report findings
+                    result_parts.append(f"  {col} oscillation analysis:")
+                    result_parts.append(f"    Oscillation score: {oscillation_score}/6")
+                    result_parts.append(f"    Direction changes: {changes} out of {len(directions)} transitions")
+                    result_parts.append(f"    Peaks found: {len(peaks)}")
+                    result_parts.append(f"    Troughs found: {len(troughs)}")
+                    result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")
+                    
+                    if oscillation_score >= 3:
+                        result_parts.append(f"    ⚠️  OSCILLATION DETECTED - Strong oscillatory pattern")
+                        step.output += f"Strong oscillation detected in {col} (score: {oscillation_score}).\n"
+                        
+                        # Show key oscillation points
+                        if peaks:
+                            result_parts.append(f"    Peak values: {[f'{val:.2f}' for _, val in peaks[:5]]}")
+                        if troughs:
+                            result_parts.append(f"    Trough values: {[f'{val:.2f}' for _, val in troughs[:5]]}")
+                            
+                        # Show timestamps of oscillations if available
+                        if timestamp_cols:
+                            oscillation_times = []
+                            for idx, _ in (peaks + troughs)[:5]:
+                                time_val = sorted_df.loc[idx, timestamp_cols[0]]
+                                oscillation_times.append(str(time_val))
+                            result_parts.append(f"    Key oscillation times: {oscillation_times}")
+                    
+                    elif oscillation_score >= 1:
+                        result_parts.append(f"    ℹ️  WEAK OSCILLATION - Some oscillatory characteristics")
+                        step.output += f"Weak oscillation detected in {col} (score: {oscillation_score}).\n"
+                    else:
+                        result_parts.append(f"    ✅ NO OSCILLATION - Data appears stable/trending")
+                        step.output += f"No significant oscillation in {col}.\n"
+                    
+                    # Add detailed indicators
+                    if oscillation_indicators:
+                        result_parts.append(f"    Indicators: {', '.join(oscillation_indicators)}")
+                    
+                    result_parts.append("")  # Space between columns
+                
+                result_parts.append("")  # Space between message types
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+                result_parts.append(f"No numeric data available in {msg_type} for oscillation analysis.")
+                result_parts.append("")
+        
+        step.output += "Oscillation detection completed successfully.\n"
+        return {"oscillations": "\n".join(result_parts)}        
+
+@tool
+async def detect_sudden_changes(data_description: str):
+    """
+    Detect sudden changes in the data.
+    """
+    async with cl.Step(name="sudden changes tool to detect anomalies", type="tool") as step:
+        step.output = "Starting sudden changes detection process...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."     
+
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                result_parts.append(f"Sudden changes detected in {msg_type}:")
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                # Sort by timestamp if available
+                sorted_df = df.copy()
+                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
+                if timestamp_cols:
+                    sorted_df = df.sort_values(by=timestamp_cols[0])
+                    step.output += f"Sorted data by {timestamp_cols[0]} for change detection.\n"
+                
+                for col in numeric_cols.columns:
+                    step.output += f"Analyzing sudden changes in {col}...\n"
+                    
+                    # Calculate percentage changes between consecutive values
+                    values = sorted_df[col].dropna()
+                    if len(values) < 2:
+                        continue
+                    
+                    pct_changes = values.pct_change().fillna(0)
+                    
+                    threshold = 0.5  # 50% change
+                    sudden_changes = pct_changes[abs(pct_changes) > threshold]
+                    
+                    if len(sudden_changes) > 0:
+                        result_parts.append(f"  {col} sudden changes (>{threshold*100}%):")
+                        step.output += f"Found {len(sudden_changes)} sudden changes in {col}.\n"
+                        
+                        for idx in sudden_changes.index:
+                            change_row = sorted_df.loc[idx]
+                            prev_idx = values.index[values.index.get_loc(idx) - 1] if values.index.get_loc(idx) > 0 else None
+                            
+                            current_value = change_row[col]
+                            change_pct = sudden_changes[idx] * 100
+                            
+                            result_parts.append(f"    Change: {change_pct:.1f}% to {current_value}")
+                            
+                            # Include context from the row where change occurred
+                            for field, value in change_row.items():
+                                if field != col:
+                                    result_parts.append(f"      {field}: {value}")
+                            
+                            # Add previous value context if available
+                            if prev_idx is not None:
+                                prev_value = sorted_df.loc[prev_idx, col]
+                                result_parts.append(f"      Previous value: {prev_value}")
+                            
+                            result_parts.append("")  # Add space between changes
+                    else:
+                        result_parts.append(f"  No sudden changes detected in {col}")
+                        step.output += f"No sudden changes detected in {col}.\n"
+                
+                result_parts.append("")  # Add space between message types
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+                result_parts.append(f"No numeric data available in {msg_type} for change detection.")
+        
+        step.output += "Sudden changes detection completed successfully.\n"
+        return {"sudden_changes": "\n".join(result_parts)}
+
+@tool
+async def visualize(query: str):
+    """
+    Visualize the data.
+    """
+    async with cl.Step(name="visualize tool to create data visualization", type="tool") as step:
+        step.output = "Starting visualization process...\n"
+
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."
+        
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        step.output += "Preparing data for visualization by sampling records...\n"
+        
+        # The data has multiple dataframes, so we need to sample from each one.
+        keys = []
+        for key in data:
+            keys.append(key)
+
+        plt.rcParams.update({'figure.dpi': 150,})                
+
+        step.output += "Generating visualization code using AI model...\n"
+
+        template = """
+        Find the key that is most relevant for the chat history: {chat_history}.
+        Here is the available keys: {keys}.
+
+        Only give the key, nothing else.
+        """
+
+        prompt = PromptTemplate(input_variables=["chat_history", "keys"], template=template)
+        # Use the global model that's already configured
+        chain = prompt | model
+        chat_history = cl.user_session.get("message_history")
+        result = chain.invoke({"chat_history": chat_history, "keys": keys})
+        key = result.content.strip()
+
+        step.output += f"Found the key: {key}\n"
+            
+        sample_size = min(100, len(data[key]))
+        sampled_data = data[key].sample(sample_size, replace=True)
+        step.output += f"Sampled {sample_size} rows from {key} dataset.\n"
+        
+        template = """
+        I have a dataframe in a dictionary called `data` that can be accessed using data[key].
+        Here is the available key: {key}.
+
+        Here is how the 100 rows sampled from the data looks like: {sampled_data}.
+
+        Write a Plotly function in Python to visualize the data[key] so that I can execute it and get the plot.
+        Make sure that the plot is relevant to the user's query: {query}.
+        
+        Only give the code, nothing else. Don't include ```python or ``` or anything else. 
+        Don't explain the data.
+
+        IMPORTANT NOTES 
+        - Make the plot look nice, readable, and high quality. 
+        - Don't use any other libraries than matplotlib, numpy, pandas, datetime, and other standard libraries
+        that are already installed in the system.
+        - Make sure that the code you generate can be run with 1 click without needing any modification/change.
+        - `data` already exists, don't create a new one!
+        - Do not include any Python code in your response. 
+        - Don't remove a file/folder, create a new one, or do anything else that might affect the existing files/folders.
+        - Don't install a new library or uninstall the existing ones.
+        """
+        
+        col_map = cl.user_session.get("col_map")
+        prompt = PromptTemplate(input_variables=["query", "sampled_data", "key"], template=template)
+        # Use the global model that's already configured
+        chain = prompt | final_model
+        result = chain.invoke({"query": query, "sampled_data": sampled_data, "key": key})
+        code = result.content.strip()
+        code = code.replace("plt.show()", "")  
+        
+        step.output += "AI model successfully generated visualization code.\n"
+        step.output += "Code has been prepared for execution.\n"
+        
+        # Execute the visualization code
+        cl.user_session.set("code", code)
+
+        step.output += f"Visualization ready using data from message types: {list(col_map.keys())}\n"
+        step.output += "Visualization process completed successfully.\n"
+
+        return f"Successfully generated the visualization code using the following message type and fields: {col_map}"
+
+def should_continue(state: MessagesState) -> Literal["tools", "final"]:
+    messages = state["messages"]
+    last_message = messages[-1]
+    # If the LLM makes a tool call, then we route to the "tools" node
+    if last_message.tool_calls:
+        return "tools"
+    # Otherwise, we stop (reply to the user)
+    return "final"
+
+async def call_model(state: MessagesState):
+    messages = state["messages"]
+    
+    # Add system message with clear instructions
+    system_message = SystemMessage(content=f"""
+    You are an assistant that analyzes flight log data. You have access to several tools.
+
+    AVAILABLE TOOLS:
+    Call extract_data tool FIRST when users ask about:
+    - Anomalies/issues in the data
+    - Maximum/minimum values
+    - Average values
+    - Sum calculations
+    - Visualizations
+    - Any analysis questions about the log data
+
+    IMPORTANT RULES:
+    - When they ask about anomalies, you can use the detect_sudden_changes and detect_oscillations tools to find the sudden changes and oscillations in the data and 
+    then interpret whether they are anomalies or not.
+    - You don't have to call any of these tools all the time. Sometimes the user might
+    ask a follow up question or ask about something that can be answered from the chat history. 
+    In those cases, don't call the tools that would normally be called.
+    and just return the answer from the chat history. 
+    - If what users asks for in their query is not available in the schema of the existing data, 
+    you can call the extract_data tool to get the right data.""" + 
+    
+    f"Here is the schema of the existing data: {cl.user_session.get('col_map', {})} and here is the chat history: {cl.user_session.get('message_history', [])}")
+    
+    # Add system message to the beginning of messages if it's not already there
+    messages_with_system = [system_message] + messages
+    
+    # Use the model that's already bound to tools (defined globally)
+    response = await model.ainvoke(messages_with_system)
+    return {"messages": [response]}
+    
+
+async def call_final_model(state: MessagesState):
+    messages = state["messages"]    
+    last_ai_message = messages[-1]
+
+    response = await final_model.ainvoke(
+        [
+            SystemMessage("""
+            Rewrite this in an organized, clean, readable and nice format. Don't just give pure numbers. Interpret them as well.
+
+            If there are oscillations and sudden changes, think about whether they can be seen as anomalies/issues or not depending on the context.
+            """),
+            HumanMessage(last_ai_message.content),
+        ]
     )
     
-    chain = prompt | model
-    result = chain.invoke({
-        "query": state["query"],
-        "tool_results": all_tool_results,
-        "web_content": state["web_content"],
-        "chat_history": state["chat_history"]
-    })
-    
-    state["final_answer"] = result.content
-    return state
+    return {"messages": [response]}
 
-# Create the unified LLM-driven workflow with async support
-workflow = StateGraph(ArduPilotAnalysisState)
+# Add recall_conversation to the tools list
+# Attention: Anomalies tool is not necessary. 
+tools = [load_web_content, extract_data, maximum, minimum, average, total_sum, visualize, detect_sudden_changes, detect_oscillations]
+model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0, max_tokens=1000)
+final_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=1.0, max_tokens=1000)
 
-# Add nodes for the unified system
-workflow.add_node("decide_tools", decide_tools_to_use)
-workflow.add_node("execute_tools", execute_unified_tools)
-workflow.add_node("generate_final_answer", generate_final_answer)
+model = model.bind_tools(tools)
+final_model = final_model.with_config(tags=["final_node"])
+tool_node = ToolNode(tools=tools)
 
-# Set the workflow flow
-workflow.add_edge(START, "decide_tools")
+builder = StateGraph(MessagesState)
 
-# After deciding tools, execute them or generate answer if no tools needed
-workflow.add_conditional_edges(
-    "decide_tools",
-    lambda state: "execute_tools" if state["tool_decisions"] else "generate_final_answer",
-    {
-        "execute_tools": "execute_tools",
-        "generate_final_answer": "generate_final_answer"
-    }
+builder.add_node("agent", call_model)
+builder.add_node("tools", tool_node)
+builder.add_node("final", call_final_model)
+
+builder.add_edge(START, "agent")
+builder.add_conditional_edges(
+    "agent",
+    should_continue,
 )
 
-# After executing each tool, check if we need to execute more or generate final answer
-workflow.add_conditional_edges(
-    "execute_tools",
-    check_unified_tool_completion,
-    {
-        "execute_tools": "execute_tools",  # Loop back to execute next tool
-        "generate_final_answer": "generate_final_answer"  # All tools completed
-    }
-)
+builder.add_edge("tools", "agent")
+builder.add_edge("final", END)
 
-# End point
-workflow.add_edge("generate_final_answer", END)
-    
-app = workflow.compile()
+graph = builder.compile()
 
-state = ArduPilotAnalysisState(
-    query="",
-    user_id="",
-    file_id="",
-    web_content="",
-    msg_context="",
-    col_map={},
-    data={},
-    tool_decisions=[],
-    tools_completed=[],
-    tool_results=[],
-    final_answer="",
-    chat_history=None
-)
+with open("user.json", "r") as f:
+    users = json.load(f)
 
-# Chainlit authentication and chat functions
+user_map = {user["user_id"]: user for user in users}
+
 @cl.password_auth_callback
 def auth_callback(username: str, password: str):
-    with open("user.json", "r") as f:
-        creds = json.load(f)
+    user = user_map.get(username)
     
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
-    if password_hash == creds["password_hash"]:
+    if user and hashlib.sha256(password.encode()).hexdigest() == user["password_hash"]:
         return cl.User(
             identifier=username, metadata={"role": "admin", "provider": "credentials"}
         )
+    
     return None
 
 @cl.on_chat_start
 async def start_chat():
-    print("ArduPilot Analysis Chatbot Started!")
-    
-    # Only initialize chat history if it doesn't exist
-    if not cl.user_session.get("chat_history"):
-        system_msg = "You are an agentic drone flight data analyst with access to powerful tools for analyzing ArduPilot log files and extracting content from documentation. You can use multiple tools to provide comprehensive answers."
-        cl.user_session.set("chat_history", [{"role": "system", "content": system_msg}])
+    cl.user_session.set("msg_context", "")
+    cl.user_session.set("file_id", "")
+    cl.user_session.set("web_content", "")
+    cl.user_session.set("data", {})
+    cl.user_session.set("message_history", [])
 
 @cl.on_message
-async def main(message: cl.Message):
-    global current_streaming_msg
+async def on_message(msg: cl.Message):
+    message_history = cl.user_session.get("message_history", [])
+    message_history.append(HumanMessage(content=msg.content))
     
-    try:
-        chat_history = cl.user_session.get("chat_history")
-        query = message.content
+    config = {"configurable": {"thread_id": cl.context.session.id}}
+    cb = cl.LangchainCallbackHandler()
+    final_answer = cl.Message(content="")
+    
+    async for msg, metadata in graph.astream({"messages": message_history}, stream_mode="messages", config=RunnableConfig(callbacks=[cb], **config)):
+        if (msg.content and not isinstance(msg, HumanMessage) and metadata["langgraph_node"] == "final"):
+            await final_answer.stream_token(msg.content)
+    
+    await final_answer.send()
+    
+    # Store the AI response content as an AIMessage
+    message_history.append(AIMessage(content=final_answer.content))
 
-        state["query"] = query
-        state["user_id"] = get_user_id()
-        state["chat_history"] = chat_history
+    cl.user_session.set("message_history", message_history)
+
+    code = cl.user_session.get("code")
+    if code:
+        # Get the data from user session to make it available in exec scope
+        data = cl.user_session.get("data")
         
-        # Create a streaming message for the response
-        current_streaming_msg = cl.Message(content="")
-        await current_streaming_msg.send()
+        # Execute the code with the data variable available
+        exec(code)
         
-        # Use the compiled workflow to handle the entire process
-        try:
-            # Run the workflow with streaming
-            final_state = await app.ainvoke(state)
-            
-            # Get the final answer and stream it
-            final_answer = final_state.get('final_answer', 'No answer generated')
-            
-            # Stream the final answer word by word
-            await stream_text_word_by_word(final_answer, "Final Answer")
-            
-            # Show completion status
-            tools_completed = final_state.get('tools_completed', [])
-            if tools_completed:
-                completion_msg = f"Analysis completed successfully using tools: {', '.join(tools_completed)}"
-                await stream_text_word_by_word(completion_msg, "Completion Status")
-            
-        except Exception as workflow_error:
-            await stream_text_word_by_word(f"Workflow error: {str(workflow_error)}")
+        # Get the current figure and create cl.Pyplot element
+        fig = plt.gcf()
+        fig.set_dpi(300)
         
-        # Update chat history
-        tools_completed = final_state.get('tools_completed', []) if 'final_state' in locals() else []
-        chat_history.append({"tool_calls": tools_completed})
-        chat_history.append({"role": "user", "content": query})
-        chat_history.append({"role": "assistant", "content": current_streaming_msg.content})
-        cl.user_session.set("chat_history", chat_history)
+        # Use cl.Pyplot for better visualization display
+        elements = [
+            cl.Pyplot(name="plot", figure=fig, display="inline"),
+        ]
         
-        # Update the message
-        await current_streaming_msg.update()
+        await cl.Message(
+            content="Here is your visualization:",
+            elements=elements,
+        ).send()
         
-    except Exception as e:
-        print(f"Error in main: {e}")
-        traceback.print_exc()
-        if current_streaming_msg:
-            await stream_text_word_by_word(f"Error occurred: {str(e)}")
-        else:
-            await cl.Message(content=f"**Error occurred:** {str(e)}").send()
+        # Clear the figure to free memory
+        plt.close(fig)    
+        cl.user_session.set("code", "") 
 
 @cl.on_stop
 def on_stop():
     print("The user wants to stop the task!")
-    
-@cl.on_chat_resume
-async def on_chat_resume(thread: ThreadDict):
-    print("The user resumed a previous chat session!")
     
 @cl.on_chat_end
 def on_chat_end():

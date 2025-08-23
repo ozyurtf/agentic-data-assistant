@@ -1,12 +1,6 @@
-**Note**: The main motivation behind this project is to refresh my knowledge of designing scalable and robust AI systems. The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
+**Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
-- Backend API development *(Done)*
-- API Gateway *(Not started yet)*
-- Chat history persistance and storage *(Not started yet)*
-- Agentic chatbot development and integration *(Done)*
-- File management system *(In progress)*
-- Authentication and session management *(In progress)*
-- Rate limiting *(Done)*
+### Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
   <iframe width="900" height="506" 
@@ -16,6 +10,19 @@
           allowfullscreen>
   </iframe>
 </div>
+
+### Features 
+
+- Backend API development **(Done)**
+- API Gateway **(Not started yet)**
+- Chat history persistance and storage **(Not started yet)**
+- Agentic chatbot development and integration **(Done)**
+- File management system **(Done)**
+- Session management **(Done)**
+- Authentication **(In progress)**
+- Rate limiting **(Done)**
+- model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0, max_tokens=1000) for analysis 
+final_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=1, max_tokens=2000) for creative interpreter
 
 ### Running  
 
@@ -44,6 +51,7 @@ CHAINLIT_AUTH_SECRET=<your_chainlit_secret>    # See https://docs.chainlit.io/au
 # App settings
 USER_AGENT=drone-chatbot
 API_BASE_URL=http://127.0.0.1:8001
+VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
 ```
 
 ### 2. Create and Activate a Virtual Environment
@@ -68,11 +76,30 @@ python -m venv .venv
 ### 3. Install Dependencies 
 
 ```bash
-pip install -r chatbot/requirements.txt
+# Install Redis (macOS)
+brew install redis
+
+# Install Python dependencies
+pip install -r requirements.txt
+
+# Install Firecrawl MCP
 npm install -g firecrawl-mcp
 ```
 
-### 4. Run with Docker 
+### 4. Start Redis Service
+
+**macOS (one-time setup):**
+```bash
+brew services start redis
+```
+
+**Verify Redis is running:**
+```bash
+redis-cli ping
+# Should return "PONG"
+```
+
+### 5. Run with Docker 
 
 ```bash
 docker build -t <your-username>/uavlogviewer . 
@@ -84,7 +111,7 @@ docker run \
   <your-username>/uavlogviewer
 ```
 
-### 5. Start Services Locally
+### 6. Start Services Locally
 
 ```bash
 cd chatbot

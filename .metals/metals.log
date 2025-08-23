@@ -1,0 +1,13 @@
+2025.08.20 21:23:18 INFO  Started: Metals version 1.2.2+102-8e3b9cea-SNAPSHOT in folders '/Users/ozyurtf/Documents/projects/agentic-data-assistant' for client Cursor 1.99.3.
+SLF4J: Class path contains multiple SLF4J providers.
+SLF4J: Found provider [scribe.slf4j.ScribeServiceProvider@40d5f383]
+SLF4J: Found provider [ch.qos.logback.classic.spi.LogbackServiceProvider@99c2569]
+SLF4J: See https://www.slf4j.org/codes.html#multiple_bindings for an explanation.
+SLF4J: Actual provider is of type [scribe.slf4j.ScribeServiceProvider@40d5f383]
+2025.08.20 21:23:18 WARN  Flyway upgrade recommended: H2 2.2.224 is newer than this version of Flyway and support has not been tested. The latest supported version of H2 is 2.2.220.
+Aug 20, 2025 9:23:18 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 3
+Aug 20, 2025 9:23:18 PM org.eclipse.lsp4j.jsonrpc.RemoteEndpoint handleCancellation
+WARNING: Unmatched cancel notification for request id 2
+2025.08.20 21:23:19 WARN  no build tool detected in workspace '/Users/ozyurtf/Documents/projects/agentic-data-assistant'. The most common cause for this problem is that the editor was opened in the wrong working directory, for example if you use sbt then the workspace directory should contain build.sbt. 
+2025.08.20 21:23:19 WARN  Build server is not auto-connectable.
