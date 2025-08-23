@@ -11,8 +11,11 @@
 - Rate limiting **(Done)**
 - Redis caching for extracted data **(Done)**
 - Web scraping integration with Firecrawl MCP server **(Done)**
+- MCP server that allows LLMs to execute Python code **(Not started yet)**
+- Code execution
 - Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
 - Multi-service Docker orchestration **(In progress)**
+- MCP server that allows LLMs to execute Python code **(Not started yet)**
 
 ## Demo 
 
