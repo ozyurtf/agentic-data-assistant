@@ -1,5 +1,19 @@
 **Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
+### Features
+
+- Backend API development **(Done)**
+- Chat history persistance and storage **(Not started yet)**
+- Agentic chatbot development and integration **(Done)**
+- File management system **(In progress)**
+- Session management **(Done)**
+- Authentication **(In progress)**
+- Rate limiting **(Done)**
+- Redis caching for extracted data **(Done)**
+- Web scraping integration **(Done)**
+- Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
+- Multi-service Docker orchestration **(In progress)**
+
 ### Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
@@ -10,17 +24,6 @@
           allowfullscreen>
   </iframe>
 </div>
-
-### Features 
-
-- Backend API development **(Done)**
-- API Gateway **(Not started yet)**
-- Chat history persistance and storage **(Not started yet)**
-- Agentic chatbot development and integration **(Done)**
-- File management system **(Done)**
-- Session management **(Done)**
-- Authentication **(In progress)**
-- Rate limiting **(Done)**
 
 ### Running  
 
