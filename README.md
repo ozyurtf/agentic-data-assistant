@@ -21,8 +21,6 @@
 - Session management **(Done)**
 - Authentication **(In progress)**
 - Rate limiting **(Done)**
-- model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0, max_tokens=1000) for analysis 
-final_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=1, max_tokens=2000) for creative interpreter
 
 ### Running  
 
