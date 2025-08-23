@@ -15,7 +15,6 @@
 - Code execution
 - Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
 - Multi-service Docker orchestration **(In progress)**
-- MCP server that allows LLMs to execute Python code **(Not started yet)**
 
 ## Demo 
 
