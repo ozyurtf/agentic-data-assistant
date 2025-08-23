@@ -85,3 +85,5 @@ exploratory-data-analysis.ipynb
 index.html
 redis.ipynb
 anomaly-template.txt
+.metals/
+.vscode/
