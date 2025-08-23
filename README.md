@@ -1,6 +1,6 @@
 **Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
-### Features
+## Features
 
 - Backend API development **(Done)**
 - Chat history persistance and storage **(Not started yet)**
@@ -14,7 +14,7 @@
 - Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
 - Multi-service Docker orchestration **(In progress)**
 
-### Demo 
+## Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
   <iframe width="1000" height="506" 
@@ -26,9 +26,9 @@
   </iframe>
 </div>
 
-### Running  
+## Running  
 
-### 1. Configure Environment Variables
+#### 1. Configure Environment Variables
 
 
 Create a .env file in the root folder with the following values:
@@ -56,7 +56,7 @@ API_BASE_URL=http://127.0.0.1:8001
 VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
 ```
 
-### 2. Create and Activate a Virtual Environment
+#### 2. Create and Activate a Virtual Environment
 
 **macOS/Linux:**
 ```bash
@@ -75,7 +75,7 @@ python -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-### 3. Install Dependencies 
+#### 3. Install Dependencies 
 
 ```bash
 # Install Redis (macOS)
@@ -88,7 +88,7 @@ pip install -r requirements.txt
 npm install -g firecrawl-mcp
 ```
 
-### 4. Start Redis Service
+#### 4. Start Redis Service
 
 **macOS (one-time setup):**
 ```bash
@@ -101,7 +101,7 @@ redis-cli ping
 # Should return "PONG"
 ```
 
-### 5. Run with Docker 
+#### 5. Run with Docker 
 
 ```bash
 docker build -t <your-username>/uavlogviewer . 
@@ -113,7 +113,7 @@ docker run \
   <your-username>/uavlogviewer
 ```
 
-### 6. Start Services Locally
+#### 6. Start Services Locally
 
 ```bash
 cd chatbot
