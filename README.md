@@ -1,4 +1,4 @@
-**Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
+**Note**: The original code used to build the UI is taken from [ArduPilot/UAVLogViewer](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the components below on top of the UI:
 
 ## Features
 
