@@ -16,15 +16,13 @@
 
 ### Demo 
 
-<div style="display: flex; justify-content: center; margin-bottom: 20px;">
-  <iframe 
-    width="100%" 
-    height="506"
-    style="max-width: 900px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"
-    src="https://www.youtube.com/embed/vtJJbjGfosw" 
-    frameborder="0" 
-    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
-    allowfullscreen>
+<div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
+  <iframe width="1000" height="506" 
+          src="https://www.youtube.com/embed/vtJJbjGfosw" 
+          style="max-width: 900px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"
+          frameborder="0" 
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+          allowfullscreen>
   </iframe>
 </div>
 
