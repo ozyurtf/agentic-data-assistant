@@ -10,7 +10,7 @@
 - Authentication **(In progress)**
 - Rate limiting **(Done)**
 - Redis caching for extracted data **(Done)**
-- Web scraping integration **(Done)**
+- Web scraping integration with Firecrawl MCP server **(Done)**
 - Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
 - Multi-service Docker orchestration **(In progress)**
 
