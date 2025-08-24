@@ -13,6 +13,7 @@ from collections import defaultdict
 import math
 import logging
 from typing import List, Dict, Any, Optional
+import os
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,8 +24,8 @@ def get_user_id(request: Request):
     return request.headers.get("user-id", request.client.host)
 
 r = redis.Redis(
-    host="localhost", 
-    port=6379, 
+    host=os.getenv("REDIS_HOST", "localhost"), 
+    port=int(os.getenv("REDIS_PORT", 6379)), 
     db=0, 
     decode_responses=True,
 )

@@ -87,3 +87,5 @@ redis.ipynb
 anomaly-template.txt
 .metals/
 .vscode/
+__pycache__
+.DS_Store

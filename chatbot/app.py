@@ -631,6 +631,177 @@ async def detect_sudden_changes(data_description: str):
         return {"sudden_changes": "\n".join(result_parts)}
 
 @tool
+async def detect_outliers(data_description: str):
+    """
+    Detect statistical outliers in the data using multiple detection methods.
+    Identifies data points that deviate significantly from normal patterns.
+    """
+    async with cl.Step(name="outlier detection tool to detect outliers", type="run") as step:
+        step.output = "Starting outlier detection process...\n"
+        
+        data = filter_data()
+        if not data:
+            step.output += "No data available in session. Please extract data first.\n"
+            return "No data available. Please extract data first."     
+
+        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        
+        result_parts = []
+        
+        for msg_type, df in data.items():
+            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            
+            numeric_cols = df.select_dtypes(include=['number'])
+            if not numeric_cols.empty:
+                result_parts.append(f"Outlier analysis for {msg_type}:")
+                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                
+                # Sort by timestamp if available for better context
+                sorted_df = df.copy()
+                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
+                if timestamp_cols:
+                    sorted_df = df.sort_values(by=timestamp_cols[0])
+                    step.output += f"Sorted data by {timestamp_cols[0]} for outlier context.\n"
+                
+                for col in numeric_cols.columns:
+                    step.output += f"Analyzing outliers in {col}...\n"
+                    
+                    values = sorted_df[col].dropna()
+                    if len(values) < 4:  # Need minimum points for outlier detection
+                        result_parts.append(f"  {col}: Insufficient data points for outlier analysis")
+                        continue
+                    
+                    outliers_found = {}
+                    all_outlier_indices = set()
+                    
+                    # Method 1: Interquartile Range (IQR) Method
+                    Q1 = values.quantile(0.25)
+                    Q3 = values.quantile(0.75)
+                    IQR = Q3 - Q1
+                    lower_bound = Q1 - 1.5 * IQR
+                    upper_bound = Q3 + 1.5 * IQR
+                    
+                    iqr_outliers = values[(values < lower_bound) | (values > upper_bound)]
+                    if len(iqr_outliers) > 0:
+                        outliers_found['IQR'] = iqr_outliers
+                        all_outlier_indices.update(iqr_outliers.index)
+                        step.output += f"IQR method found {len(iqr_outliers)} outliers in {col}.\n"
+                    
+                    # Method 2: Z-Score Method (values beyond 2.5 standard deviations)
+                    if len(values) >= 6:  # Z-score needs reasonable sample size
+                        mean_val = values.mean()
+                        std_val = values.std()
+                        
+                        if std_val > 0:  # Avoid division by zero
+                            z_scores = abs((values - mean_val) / std_val)
+                            z_outliers = values[z_scores > 2.5]  # 2.5 standard deviations
+                            
+                            if len(z_outliers) > 0:
+                                outliers_found['Z-Score'] = z_outliers
+                                all_outlier_indices.update(z_outliers.index)
+                                step.output += f"Z-Score method found {len(z_outliers)} outliers in {col}.\n"
+                    
+                    # Method 3: Modified Z-Score using Median Absolute Deviation (MAD)
+                    median_val = values.median()
+                    mad = (values - median_val).abs().median()
+                    
+                    if mad > 0:  # Avoid division by zero
+                        modified_z_scores = 0.6745 * (values - median_val) / mad
+                        mad_outliers = values[abs(modified_z_scores) > 3.5]  # 3.5 MAD threshold
+                        
+                        if len(mad_outliers) > 0:
+                            outliers_found['MAD'] = mad_outliers
+                            all_outlier_indices.update(mad_outliers.index)
+                            step.output += f"MAD method found {len(mad_outliers)} outliers in {col}.\n"
+                    
+                    # Method 4: Percentile Method (beyond 1st and 99th percentiles)
+                    p1 = values.quantile(0.01)
+                    p99 = values.quantile(0.99)
+                    percentile_outliers = values[(values < p1) | (values > p99)]
+                    
+                    if len(percentile_outliers) > 0:
+                        outliers_found['Percentile'] = percentile_outliers
+                        all_outlier_indices.update(percentile_outliers.index)
+                        step.output += f"Percentile method found {len(percentile_outliers)} outliers in {col}.\n"
+                    
+                    # Report findings
+                    result_parts.append(f"  {col} outlier analysis:")
+                    result_parts.append(f"    Data range: {values.min():.3f} to {values.max():.3f}")
+                    result_parts.append(f"    Mean: {values.mean():.3f}, Median: {values.median():.3f}")
+                    result_parts.append(f"    Standard deviation: {values.std():.3f}")
+                    result_parts.append(f"    Total unique outliers found: {len(all_outlier_indices)}")
+                    
+                    if outliers_found:
+                        result_parts.append(f"    🚨 OUTLIERS DETECTED:")
+                        
+                        # Show method-specific results
+                        for method, outlier_series in outliers_found.items():
+                            result_parts.append(f"      {method} method: {len(outlier_series)} outliers")
+                            
+                            # Show top outliers with context
+                            top_outliers = outlier_series.nlargest(3) if len(outlier_series.nlargest(3)) > 0 else outlier_series
+                            bottom_outliers = outlier_series.nsmallest(3) if len(outlier_series.nsmallest(3)) > 0 else outlier_series
+                            
+                            extreme_outliers = set(top_outliers.index).union(set(bottom_outliers.index))
+                            
+                            for idx in list(extreme_outliers)[:5]:  # Show up to 5 most extreme
+                                outlier_row = sorted_df.loc[idx]
+                                outlier_value = outlier_row[col]
+                                
+                                result_parts.append(f"        Outlier value: {outlier_value:.3f}")
+                                
+                                # Add context from the row
+                                for field, value in outlier_row.items():
+                                    if field != col:  # Don't repeat the outlier value
+                                        result_parts.append(f"          {field}: {value}")
+                                result_parts.append("")  # Space between outliers
+                        
+                        # Consensus outliers (found by multiple methods)
+                        method_counts = {}
+                        for idx in all_outlier_indices:
+                            count = sum(1 for method_outliers in outliers_found.values() 
+                                       if idx in method_outliers.index)
+                            if count > 1:
+                                method_counts[idx] = count
+                        
+                        if method_counts:
+                            result_parts.append(f"    🎯 CONSENSUS OUTLIERS (detected by multiple methods):")
+                            for idx, count in sorted(method_counts.items(), key=lambda x: x[1], reverse=True)[:3]:
+                                outlier_row = sorted_df.loc[idx]
+                                result_parts.append(f"      Value {outlier_row[col]:.3f} detected by {count} methods")
+                                
+                                # Add timestamp context if available
+                                if timestamp_cols:
+                                    time_val = outlier_row[timestamp_cols[0]]
+                                    result_parts.append(f"        Time: {time_val}")
+                        
+                        # Statistical impact
+                        outlier_percentage = (len(all_outlier_indices) / len(values)) * 100
+                        result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers")
+                        
+                        if outlier_percentage > 10:
+                            result_parts.append(f"    ⚠️  HIGH OUTLIER RATE - Consider data quality issues")
+                        elif outlier_percentage > 5:
+                            result_parts.append(f"    ⚠️  MODERATE OUTLIER RATE - Monitor data quality")
+                        else:
+                            result_parts.append(f"    ℹ️  NORMAL OUTLIER RATE - Expected for most datasets")
+                    
+                    else:
+                        result_parts.append(f"    ✅ NO OUTLIERS DETECTED - Data appears normally distributed")
+                        step.output += f"No outliers detected in {col}.\n"
+                    
+                    result_parts.append("")  # Space between columns
+                
+                result_parts.append("")  # Space between message types
+            else:
+                step.output += f"No numeric fields found in {msg_type}.\n"
+                result_parts.append(f"No numeric data available in {msg_type} for outlier analysis.")
+                result_parts.append("")
+        
+        step.output += "Outlier detection completed successfully.\n"
+        return {"outliers": "\n".join(result_parts)}        
+
+@tool
 async def visualize(query: str):
     """
     Visualize the data.
@@ -743,8 +914,8 @@ async def call_model(state: MessagesState):
     - Any analysis questions about the log data
 
     IMPORTANT RULES:
-    - When they ask about anomalies, you can use the detect_sudden_changes and detect_oscillations tools to find the sudden changes and oscillations in the data and 
-    then interpret whether they are anomalies or not.
+    - When they ask about anomalies, you can use the detect_sudden_changes, detect_oscillations, and detect_outliers tools 
+    to find the sudden changes, oscillations, and outliers in the data and then interpret whether they are anomalies or not.
     - You don't have to call any of these tools all the time. Sometimes the user might
     ask a follow up question or ask about something that can be answered from the chat history. 
     In those cases, don't call the tools that would normally be called.
@@ -771,7 +942,7 @@ async def call_final_model(state: MessagesState):
             SystemMessage("""
             Rewrite this in an organized, clean, readable and nice format. Don't just give pure numbers. Interpret them as well.
 
-            If there are oscillations and sudden changes, think about whether they can be seen as anomalies/issues or not depending on the context.
+            If there are oscillations, sudden changes, or outliers, think about whether they can be seen as anomalies/issues or not depending on the context.
             """),
             HumanMessage(last_ai_message.content),
         ]
@@ -781,7 +952,7 @@ async def call_final_model(state: MessagesState):
 
 # Add recall_conversation to the tools list
 # Attention: Anomalies tool is not necessary. 
-tools = [load_web_content, extract_data, maximum, minimum, average, total_sum, visualize, detect_sudden_changes, detect_oscillations]
+tools = [load_web_content, extract_data, maximum, minimum, average, total_sum, visualize, detect_sudden_changes, detect_oscillations, detect_outliers]
 model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0, max_tokens=1000)
 final_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=1.0, max_tokens=1000)
 

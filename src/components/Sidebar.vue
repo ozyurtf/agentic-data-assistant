@@ -3,7 +3,7 @@
     <div class="nav-side-menu col-lg-2">
 
         <h1 class="brand">
-            <a class="github" href="https://github.com/ozyurtf/uav-log-viewer">
+            <a class="github" href="https://github.com/ozyurtf/agentic-data-assistant">
             <img :src="require('../assets/GitHub-Mark-64px.png').default"/>
             </a>
             <a href="/">Agentic Data Assistant<i></i></a><a class="github" href="https://ardupilot.org/copter/docs/common-uavlogviewer.html"><img :src="require('../assets/wiki.svg').default"/></a></h1>

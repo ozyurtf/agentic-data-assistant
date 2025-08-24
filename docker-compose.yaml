@@ -1,0 +1,61 @@
+services:
+  backend:
+    image: fastapi
+    container_name: backend
+    env_file:
+      - .env    
+    ports:
+      - "8001:8001"
+    networks:
+      - chatbot_net
+    depends_on:
+      - redis 
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=${REDIS_PORT}
+
+  chatbot:
+    image: chatbot
+    container_name: chatbot
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"   
+    networks:
+      - chatbot_net
+    environment:
+      - CHAINLIT_HOST=0.0.0.0
+      - CHAINLIT_PORT=8000
+      - API_BASE_URL=http://backend:8001
+
+  frontend:
+    image: ui
+    container_name: frontend
+    env_file:
+      - .env
+    ports:
+      - "8080:8080"  
+    environment:
+      - VUE_APP_API_BASE_URL=${VUE_APP_API_BASE_URL}
+      - VUE_APP_CHATBOT_URL=${VUE_APP_CHATBOT_URL}
+      - VUE_APP_CESIUM_TOKEN=${VUE_APP_CESIUM_TOKEN}
+    networks:
+      - chatbot_net
+
+  redis:
+    image: redis:7-alpine
+    container_name: redis
+    ports:
+      - "6380:6379"
+    networks:
+      - chatbot_net
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+
+networks:
+  chatbot_net:
+    driver: bridge
+
+volumes:
+  redis_data:
