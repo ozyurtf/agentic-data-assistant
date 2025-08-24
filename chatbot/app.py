@@ -732,7 +732,7 @@ async def detect_outliers(data_description: str):
                     result_parts.append(f"    Total unique outliers found: {len(all_outlier_indices)}")
                     
                     if outliers_found:
-                        result_parts.append(f"    🚨 OUTLIERS DETECTED:")
+                        result_parts.append(f"    OUTLIERS DETECTED:")
                         
                         # Show method-specific results
                         for method, outlier_series in outliers_found.items():
@@ -765,7 +765,7 @@ async def detect_outliers(data_description: str):
                                 method_counts[idx] = count
                         
                         if method_counts:
-                            result_parts.append(f"    🎯 CONSENSUS OUTLIERS (detected by multiple methods):")
+                            result_parts.append(f"    CONSENSUS OUTLIERS (detected by multiple methods):")
                             for idx, count in sorted(method_counts.items(), key=lambda x: x[1], reverse=True)[:3]:
                                 outlier_row = sorted_df.loc[idx]
                                 result_parts.append(f"      Value {outlier_row[col]:.3f} detected by {count} methods")
@@ -780,14 +780,14 @@ async def detect_outliers(data_description: str):
                         result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers")
                         
                         if outlier_percentage > 10:
-                            result_parts.append(f"    ⚠️  HIGH OUTLIER RATE - Consider data quality issues")
+                            result_parts.append(f"     HIGH OUTLIER RATE - Consider data quality issues")
                         elif outlier_percentage > 5:
-                            result_parts.append(f"    ⚠️  MODERATE OUTLIER RATE - Monitor data quality")
+                            result_parts.append(f"    MODERATE OUTLIER RATE - Monitor data quality")
                         else:
-                            result_parts.append(f"    ℹ️  NORMAL OUTLIER RATE - Expected for most datasets")
+                            result_parts.append(f"    NORMAL OUTLIER RATE - Expected for most datasets")
                     
                     else:
-                        result_parts.append(f"    ✅ NO OUTLIERS DETECTED - Data appears normally distributed")
+                        result_parts.append(f"    NO OUTLIERS DETECTED - Data appears normally distributed")
                         step.output += f"No outliers detected in {col}.\n"
                     
                     result_parts.append("")  # Space between columns
@@ -914,6 +914,7 @@ async def call_model(state: MessagesState):
     - Any analysis questions about the log data
 
     IMPORTANT RULES:
+    - If you decide to use extract_data tool, don't extract more than 3 message types.
     - When they ask about anomalies, you can use the detect_sudden_changes, detect_oscillations, and detect_outliers tools 
     to find the sudden changes, oscillations, and outliers in the data and then interpret whether they are anomalies or not.
     - You don't have to call any of these tools all the time. Sometimes the user might

@@ -2,19 +2,19 @@
 
 ## Features
 
-- Backend API development **(Done)**
-- Agentic chatbot development and integration **(Done)**
-- Session management **(Done)**
-- Rate limiting **(Done)**
-- Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
-- Redis caching for extracted data **(Done)**
-- Web scraping integration with Firecrawl MCP server **(Done)**
-- Multi-service Docker orchestration **(Done)**
-- File management system **(In Progress)**
-- Authentication **(In Progress)**
-- Chat history persistence and storage **(Not Started Yet)**
-- Safety validation for LLM-generated data visualization code **(Not Started Yet)**
-- MCP server for executing data visualization code **(Not Started Yet)**
+- Backend API development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Agentic chatbot development and integration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Session management <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Integration of data analytics tools executable by LLMs with result interpretation <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Redis caching for extracted data <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Web scraping integration with Firecrawl MCP server <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- File management system <span style="color: #fd7e14; font-weight: bold;">**(In Progress)**</span>
+- Authentication <span style="color: #fd7e14; font-weight: bold;">**(In Progress)**</span>
+- Chat history persistence and storage <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
+- Safety validation for LLM-generated data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
+- MCP server for executing data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 
 ## Demo 
 
