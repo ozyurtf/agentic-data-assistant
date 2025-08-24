@@ -2,19 +2,19 @@
 
 ## Features
 
-- Backend API development [██████████] 100% Complete
-- Agentic chatbot development and integration [██████████] 100% Complete
-- Session management [██████████] 100% Complete
-- Rate limiting [██████████] 100% Complete
-- Integration of data analytics tools executable by LLMs with result interpretation [██████████] 100% Complete
-- Redis caching for extracted data [██████████] 100% Complete
-- Web scraping integration with Firecrawl MCP server [██████████] 100% Complete
-- Multi-service Docker orchestration [██████████] 100% Complete
-- File management system [██████░░░░] 60% In Progress
-- Authentication [████░░░░░░] 40% In Progress
-- Chat history persistence and storage [░░░░░░░░░░] 0% Not Started
-- Safety validation for LLM-generated data visualization code [░░░░░░░░░░] 0% Not Started
-- MCP server for executing data visualization code [░░░░░░░░░░] 0% Not Started
+- Backend API development **(Done)**
+- Agentic chatbot development and integration **(Done)**
+- Session management **(Done)**
+- Rate limiting **(Done)**
+- Integration of data analytics tools executable by LLMs with result interpretation **(Done)**
+- Redis caching for extracted data **(Done)**
+- Web scraping integration with Firecrawl MCP server **(Done)**
+- Multi-service Docker orchestration **(Done)**
+- File management system **(In Progress)**
+- Authentication **(In Progress)**
+- Chat history persistence and storage **(Not Started Yet)**
+- Safety validation for LLM-generated data visualization code **(Not Started Yet)**
+- MCP server for executing data visualization code **(Not Started Yet)**
 
 ## Demo 
 
