@@ -30,7 +30,7 @@
 
 ## Running  
 
-#### 1. Configure Environment Variables
+### 1. Configure Environment Variables
 
 
 Create a .env file in the root folder with the following values:
@@ -62,7 +62,7 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
 
-#### 2. Create and Activate a Virtual Environment
+### 2. Create and Activate a Virtual Environment
 
 **macOS/Linux:**
 ```bash
@@ -76,25 +76,27 @@ python -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-#### 3. Install Dependencies 
+### 3. Install Dependencies 
 
 **macOS/Linux:**
 ```bash
 brew install redis
-```
 
-**Windows:**
-```bash
-choco install redis-64
-```
-
-```bash
 pip install -r requirements.txt
 
 npm install -g firecrawl-mcp
 ```
 
-#### 4. Start Redis Service
+**Windows:**
+```bash
+choco install redis-64
+
+pip install -r requirements.txt
+
+npm install -g firecrawl-mcp
+```
+
+### 4. Start Redis Service
 
 **macOS (one-time setup):**
 ```bash
@@ -116,7 +118,7 @@ redis-server --service-start
 redis-cli ping
 ```
 
-#### 5. Run with Docker 
+### 5. Run with Docker 
 
 ```bash
 docker build -t ui .
@@ -133,5 +135,7 @@ docker build -t fastapi .
 ```bash
 docker compose up
 ```
+
+### 6. Interact with Chatbot
 
 Visit `http://localhost:8080/` to interact with the UI and chatbot.
