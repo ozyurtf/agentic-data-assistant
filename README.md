@@ -98,7 +98,7 @@ npm install -g firecrawl-mcp
 
 ### 4. Start Redis Service
 
-**macOS (one-time setup):**
+**macOS:**
 ```bash
 brew services start redis
 ```
@@ -121,15 +121,18 @@ redis-cli ping
 ### 5. Run with Docker 
 
 ```bash
+# Build UI (Dockerfile is in root folder)
 docker build -t ui .
 ```
 
 ```bash
-docker build -t chatbot .
+# Build chatbot (Dockerfile is in chatbot folder)
+docker build -t chatbot ./chatbot
 ``` 
 
 ```bash 
-docker build -t fastapi .
+# Build fastapi (Dockerfile is in fastapi folder)
+docker build -t fastapi ./fastapi
 ```
 
 ```bash
