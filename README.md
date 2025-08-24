@@ -1,3 +1,11 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+body {
+    font-family: "Avenir", "Avenir Next", "Inter", "Segoe UI", "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+</style>
+
 **Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the features below on top of the UI:
 
 ## Features
