@@ -56,6 +56,7 @@ CHAINLIT_AUTH_SECRET=<your_chainlit_secret>    # See https://docs.chainlit.io/au
 USER_AGENT=drone-chatbot
 API_BASE_URL=http://127.0.0.1:8001
 VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
+VUE_APP_CHATBOT_URL=http://localhost:8000
 
 # Redis 
 REDIS_HOST=localhost
