@@ -8,7 +8,7 @@ class FileReceiveResponse(BaseModel):
     filename: str
     
 class ChatMessage(BaseModel):
-    message: str = Field(..., min_length=1, max_length=2000, description="User's question about the flight data")
+    message: str = Field(..., min_length=1, max_length=2000)
 
 class ChatResponse(BaseModel):
     response: str

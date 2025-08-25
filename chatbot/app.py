@@ -33,7 +33,8 @@ base_url = os.getenv("API_BASE_URL")
 def get_user_id():
     """Get user ID from Chainlit session"""
     user = cl.user_session.get("user")
-    return user.identifier if user and hasattr(user, "identifier") else "anonymous"
+    user_id = user.identifier if user and hasattr(user, "identifier") else "anonymous"
+    return user_id
 
 def filter_data() -> dict:
     """
