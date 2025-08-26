@@ -27,6 +27,7 @@ services:
       - CHAINLIT_HOST=0.0.0.0
       - CHAINLIT_PORT=8000
       - API_BASE_URL=http://backend:8001
+      - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
 
   frontend:
     image: ui

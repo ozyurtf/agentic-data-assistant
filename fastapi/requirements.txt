@@ -1,9 +1,4 @@
 # Core dependencies
-chainlit>=2.7.1.1
-langchain-openai>=0.3.31
-langchain-core>=0.3.74
-langgraph>=0.6.6
-langchain-community>=0.3.27
 python-dotenv>=1.1.1
 
 # HTTP and API
@@ -19,3 +14,6 @@ redis>=6.4.0
 
 # Type hints
 typing-extensions>=4.14.1
+
+# Form parsing for FastAPI file uploads
+python-multipart>=0.0.20

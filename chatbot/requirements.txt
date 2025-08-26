@@ -1,10 +1,14 @@
 # Core dependencies
 chainlit>=2.7.1.1
+langchain>=0.3.27
 langchain-openai>=0.3.31
+langchain-anthropic>=0.3.19
 langchain-core>=0.3.74
 langgraph>=0.6.6
-langchain-community>=0.3.27
 python-dotenv>=1.1.1
+
+# FireCrawl for web scraping
+firecrawl>=3.2.1
 
 # Data processing
 pandas>=2.3.2
@@ -15,6 +19,7 @@ pymavlink>=2.4.49
 
 # HTTP and API
 requests>=2.32.5
+fastapi>=0.116.1
 
 # Type hints
 typing-extensions>=4.14.1

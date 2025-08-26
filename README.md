@@ -8,10 +8,10 @@
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Integration of data analytics tools executable by LLMs with result interpretation <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Redis caching for extracted data <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Web scraping integration with Firecrawl MCP server <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Web scraping integration with Firecrawl <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- File management system <span style="color: #fd7e14; font-weight: bold;">**(In Progress)**</span>
-- Authentication <span style="color: #fd7e14; font-weight: bold;">**(In Progress)**</span>
+- File management system <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Chat history persistence and storage <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 - Safety validation for LLM-generated data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 - MCP server for executing data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
@@ -84,8 +84,6 @@ python -m venv .venv
 brew install redis
 
 pip install -r requirements.txt
-
-npm install -g firecrawl-mcp
 ```
 
 **Windows:**
@@ -93,8 +91,6 @@ npm install -g firecrawl-mcp
 choco install redis-64
 
 pip install -r requirements.txt
-
-npm install -g firecrawl-mcp
 ```
 
 ### 4. Start Redis Service

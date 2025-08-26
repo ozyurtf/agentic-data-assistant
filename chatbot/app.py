@@ -5,7 +5,8 @@ from langgraph.prebuilt import ToolNode
 from langchain.schema.runnable.config import RunnableConfig
 import chainlit as cl
 from dotenv import load_dotenv
-from langchain_community.document_loaders.firecrawl import FireCrawlLoader
+from firecrawl import Firecrawl
+from fastapi import Request, Response
 from typing import Annotated
 from typing_extensions import TypedDict
 from langgraph.graph import END, StateGraph, START
@@ -25,6 +26,7 @@ import threading
 import asyncio
 import hashlib
 import json
+import time
 matplotlib.use('Agg') 
 
 load_dotenv()
@@ -55,19 +57,19 @@ async def load_web_content(url: str) -> str:
     Use this when user provides a URL and wants to extract content from it.
     """
     try:
-        async with cl.Step(name="web scraping tool to extract web content", type="tool") as step:
+        async with cl.Step(name="web scraping tool to extract web content", type="run") as step:
             if not url:
                 step.output = "No URL provided"
                 return "No URL provided"
             
-        # Attention: Web content is forgotton after the query is answered. 
-        step.output = f"Loading web content from the {url}...\n"
-        loader = FireCrawlLoader(url=url, mode="scrape")
-        docs = loader.load()
-        content = " ".join(doc.page_content for doc in docs)
-        step.output += "Web content loaded successfully..."
-        cl.user_session.set("web_content", content)
-        return {"web_content": content}
+            # Attention: Web content is forgotton after the query is answered. 
+            step.output = f"Loading web content from the {url}...\n"
+            app = Firecrawl()
+            docs = app.scrape(url)
+            content = docs.markdown
+            step.output += "Web content loaded successfully..."
+            cl.user_session.set("web_content", content)
+            return {"web_content": content}
     except Exception as e:
         step.output = f"Error loading web content: {str(e)}"
         return f"Error loading web content: {str(e)}"
@@ -80,9 +82,41 @@ async def extract_data(query: str) -> str:
     read the data of these message types and fields from the file, and return the results.
     """
     
-    async with cl.Step(name="data extraction tool to find relevant data", type="tool") as step:
+    # Solution 1: Use unique ID for each TaskList instance
+    import time
+    task_list_id = f"extract_data_{int(time.time() * 1000)}"
+    
+    # Create TaskList with unique ID
+    task_list = cl.TaskList()
+    task_list.status = "Extracting data from log file..."
+    # Set a unique ID to prevent collision
+    task_list.id = task_list_id
+    
+    # Alternative Solution 2: Remove any existing TaskList first
+    # This ensures a clean slate each time
+    try:
+        # Clear any existing task lists for this tool
+        await cl.TaskList.remove(task_list_id)
+    except:
+        pass  # No existing task list to remove
+    
+    # Define tasks with unique IDs as well
+    task_file_check = cl.Task(title="Checking for uploaded file", status=cl.TaskStatus.RUNNING)
+    task_schema = cl.Task(title="Fetching message schema", status=cl.TaskStatus.READY)
+    task_ai_analysis = cl.Task(title="AI analyzing relevant fields", status=cl.TaskStatus.READY)
+    task_data_extraction = cl.Task(title="Extracting data from log", status=cl.TaskStatus.READY)
+    task_processing = cl.Task(title="Processing and cleaning data", status=cl.TaskStatus.READY)
+    
+    await task_list.add_task(task_file_check)
+    await task_list.add_task(task_schema)
+    await task_list.add_task(task_ai_analysis)
+    await task_list.add_task(task_data_extraction)
+    await task_list.add_task(task_processing)
+    await task_list.send()
+    
+    async with cl.Step(name="data extraction tool to find relevant data", type="run") as step:
         try:
-            # Add thinking process to the step
+            # Step 1: Check for uploaded file
             step.output = "Starting data extraction process...\n"
             
             user_id = get_user_id()        
@@ -98,12 +132,24 @@ async def extract_data(query: str) -> str:
                 file_id = file_data.get("file_id", "")
                 if file_path:
                     step.output += f"Using uploaded file: {file_path}\n"
+                    task_file_check.status = cl.TaskStatus.DONE
+                    await task_list.send()
                 else:
                     step.output += "No file uploaded. Please upload a log file first.\n"
+                    task_file_check.status = cl.TaskStatus.FAILED
+                    task_list.status = "Failed - No file uploaded"
+                    await task_list.send()
                     return f"No file uploaded. Please upload a log file first."
             else:
                 step.output += f"API request failed with status {response.status_code}\n"
+                task_file_check.status = cl.TaskStatus.FAILED
+                task_list.status = f"Failed - API error {response.status_code}"
+                await task_list.send()
                 return f"API request failed with status {response.status_code}: {response.text}"
+            
+            # Step 2: Fetch or retrieve schema
+            task_schema.status = cl.TaskStatus.RUNNING
+            await task_list.send()
             
             if cl.user_session.get("file_id") != file_id:
                 step.output += "New file detected, fetching message schema...\n"
@@ -126,12 +172,22 @@ async def extract_data(query: str) -> str:
                     cl.user_session.set("msg_context", msg_context)
                     cl.user_session.set("data", {})
                     cl.user_session.set("file_id", file_id)
+                    task_schema.status = cl.TaskStatus.DONE
+                    await task_list.send()
                 else:
+                    task_schema.status = cl.TaskStatus.FAILED
+                    task_list.status = "Failed - Could not get schema"
+                    await task_list.send()
                     return "Failed to get file schema from API"
             else:
                 msg_context = cl.user_session.get("msg_context")
+                task_schema.status = cl.TaskStatus.DONE
+                await task_list.send()
 
-            # Step 2: Extract column mapping
+            # Step 3: AI Analysis for column mapping
+            task_ai_analysis.status = cl.TaskStatus.RUNNING
+            await task_list.send()
+            
             step.output += "Using AI to identify relevant fields for your query...\n"
             step.output += f"Query: '{query}'\n"
             
@@ -191,8 +247,13 @@ async def extract_data(query: str) -> str:
             cl.user_session.set("col_map", col_map)
             
             step.output += f"AI identified relevant fields: {col_map}\n"
+            task_ai_analysis.status = cl.TaskStatus.DONE
+            await task_list.send()
             
-            # Step 3: Read data using the API endpoint
+            # Step 4: Extract data using the API endpoint
+            task_data_extraction.status = cl.TaskStatus.RUNNING
+            await task_list.send()
+            
             step.output += "Extracting data from log file using API...\n"
             
             user_id = get_user_id()
@@ -202,17 +263,27 @@ async def extract_data(query: str) -> str:
                     
             if response.status_code != 200:
                 step.output += f"API request failed with status {response.status_code}\n"
+                task_data_extraction.status = cl.TaskStatus.FAILED
+                task_list.status = f"Failed - API error {response.status_code}"
+                await task_list.send()
                 return f"API request failed with status {response.status_code}: {response.text}"
                 
             response_data = response.json()
             if not response_data.get("success"):
                 step.output += f"API processing failed: {response_data.get('error', 'Unknown error')}\n"
+                task_data_extraction.status = cl.TaskStatus.FAILED
+                task_list.status = "Failed - Data extraction error"
+                await task_list.send()
                 return f"API processing failed: {response_data.get('error', 'Unknown error')}"
 
-
             step.output += "Successfully retrieved data from API\n"
-            
             data = response_data["data"]
+            task_data_extraction.status = cl.TaskStatus.DONE
+            await task_list.send()
+            
+            # Step 5: Process and clean the data
+            task_processing.status = cl.TaskStatus.RUNNING
+            await task_list.send()
             
             final_data = {}
             
@@ -227,10 +298,27 @@ async def extract_data(query: str) -> str:
             
             step.output += f"Data extraction completed! Extracted {len(final_data)} message types.\n"
             cl.user_session.set("data", final_data)
+            
+            task_processing.status = cl.TaskStatus.DONE
+            task_list.status = "Data extraction completed successfully!"
+            await task_list.send()
+            
+            await asyncio.sleep(3)
+            await task_list.remove()
+            
             return {"data": final_data}
                 
         except Exception as e:
             step.output += f"Error occurred: {str(e)}\n"
+            
+            # Mark any running tasks as failed
+            for task in [task_file_check, task_schema, task_ai_analysis, task_data_extraction, task_processing]:
+                if task.status == cl.TaskStatus.RUNNING:
+                    task.status = cl.TaskStatus.FAILED
+            
+            task_list.status = f"Failed - {str(e)[:50]}..."  # Truncate error message if too long
+            await task_list.send()
+            
             return f"Error in extract_data: {str(e)}"
 
 @tool
@@ -238,7 +326,7 @@ async def average(data_description: str):
     """
     Calculate the average value of numeric fields in the data.
     """
-    async with cl.Step(name="average tool to calculate average values", type="tool") as step:
+    async with cl.Step(name="average tool to calculate average values", type="run") as step:
         step.output = "Starting average calculation process...\n"
         
         data = filter_data()
@@ -275,7 +363,7 @@ async def total_sum(data_description: str):
     Calculate the sum of numeric fields in the data.
     
     """
-    async with cl.Step(name="sum tool to calculate sum of numeric fields", type="tool") as step:
+    async with cl.Step(name="sum tool to calculate sum of numeric fields", type="run") as step:
         step.output = "Starting sum calculation process...\n"
         
         data = filter_data()
@@ -313,7 +401,7 @@ async def maximum(data_description: str):
     If the user ask for only the maximum value, you can return the maximum value.
     But if the user asks for the maximum value and when it occurred, return the maximum value and when it occurred.
     """
-    async with cl.Step(name="maximum tool to find maximum values", type="tool") as step:
+    async with cl.Step(name="maximum tool to find maximum values", type="run") as step:
         step.output = "Starting maximum value analysis...\n"
         
         data = filter_data()
@@ -359,7 +447,7 @@ async def minimum(data_description: str):
     If the user ask for only the minimum value, you can return the minimum value.
     But if the user asks for the minimum value and when it occurred, return the minimum value and when it occurred.
     """
-    async with cl.Step(name="minimum tool to find minimum values", type="tool") as step:
+    async with cl.Step(name="minimum tool to find minimum values", type="run") as step:
         step.output = "Starting minimum value analysis...\n"
         
         data = filter_data()
@@ -403,7 +491,7 @@ async def detect_oscillations(data_description: str):
     """
     Detect oscillatory patterns in the data, including periodic fluctuations and recurring cycles.
     """
-    async with cl.Step(name="oscillation detection tool to detect oscillations", type="tool") as step:
+    async with cl.Step(name="oscillation tool to detect oscillations", type="run") as step:
         step.output = "Starting oscillation detection process...\n"
         
         data = filter_data()
@@ -511,7 +599,7 @@ async def detect_oscillations(data_description: str):
                     result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")
                     
                     if oscillation_score >= 3:
-                        result_parts.append(f"    ⚠️  OSCILLATION DETECTED - Strong oscillatory pattern")
+                        result_parts.append(f"    OSCILLATION DETECTED - Strong oscillatory pattern")
                         step.output += f"Strong oscillation detected in {col} (score: {oscillation_score}).\n"
                         
                         # Show key oscillation points
@@ -529,10 +617,10 @@ async def detect_oscillations(data_description: str):
                             result_parts.append(f"    Key oscillation times: {oscillation_times}")
                     
                     elif oscillation_score >= 1:
-                        result_parts.append(f"    ℹ️  WEAK OSCILLATION - Some oscillatory characteristics")
+                        result_parts.append(f"    WEAK OSCILLATION - Some oscillatory characteristics")
                         step.output += f"Weak oscillation detected in {col} (score: {oscillation_score}).\n"
                     else:
-                        result_parts.append(f"    ✅ NO OSCILLATION - Data appears stable/trending")
+                        result_parts.append(f"    NO OSCILLATION - Data appears stable/trending")
                         step.output += f"No significant oscillation in {col}.\n"
                     
                     # Add detailed indicators
@@ -555,7 +643,7 @@ async def detect_sudden_changes(data_description: str):
     """
     Detect sudden changes in the data.
     """
-    async with cl.Step(name="sudden changes tool to detect anomalies", type="tool") as step:
+    async with cl.Step(name="sudden changes tool to detect anomalies", type="run") as step:
         step.output = "Starting sudden changes detection process...\n"
         
         data = filter_data()
@@ -606,7 +694,7 @@ async def detect_sudden_changes(data_description: str):
                             current_value = change_row[col]
                             change_pct = sudden_changes[idx] * 100
                             
-                            result_parts.append(f"    Change: {change_pct:.1f}% to {current_value}")
+                            # result_parts.append(f"    Change: {change_pct:.1f}% to {current_value}")
                             
                             # Include context from the row where change occurred
                             for field, value in change_row.items():
@@ -807,7 +895,7 @@ async def visualize(query: str):
     """
     Visualize the data.
     """
-    async with cl.Step(name="visualize tool to create data visualization", type="tool") as step:
+    async with cl.Step(name="visualize tool to create data visualization", type="run") as step:
         step.output = "Starting visualization process...\n"
 
         data = filter_data()
@@ -906,7 +994,7 @@ async def call_model(state: MessagesState):
     You are an assistant that analyzes flight log data. You have access to several tools.
 
     AVAILABLE TOOLS:
-    Call extract_data tool FIRST when users ask about:
+    Call `extract_data` tool FIRST when users ask about:
     - Anomalies/issues in the data
     - Maximum/minimum values
     - Average values
@@ -915,17 +1003,28 @@ async def call_model(state: MessagesState):
     - Any analysis questions about the log data
 
     IMPORTANT RULES:
-    - If you decide to use extract_data tool, don't extract more than 3 message types.
+    - If you decide to use `extract_data` tool, don't extract more than 3 message types.
+
     - When they ask about anomalies, you can use the detect_sudden_changes, detect_oscillations, and detect_outliers tools 
     to find the sudden changes, oscillations, and outliers in the data and then interpret whether they are anomalies or not.
+
     - You don't have to call any of these tools all the time. Sometimes the user might
-    ask a follow up question or ask about something that can be answered from the chat history. 
+    ask a follow up question or ask about something that can be answered from the `chat_history`. 
     In those cases, don't call the tools that would normally be called.
-    and just return the answer from the chat history. 
-    - If what users asks for in their query is not available in the schema of the existing data, 
-    you can call the extract_data tool to get the right data.""" + 
-    
-    f"Here is the schema of the existing data: {cl.user_session.get('col_map', {})} and here is the chat history: {cl.user_session.get('message_history', [])}")
+    and just return the answer from the `chat_history`. 
+
+    - If the user asks for issues, you can extract the error (e.g., ERR) data if the data is 
+    part of the `msg_context` and analyze it.
+
+    - If what users asks for in their query is not available in the `schema of the existing data`
+    and if you think it might be better to use another data in the `msg_context`, 
+    call the `extract_data` tool to get the right data. 
+    """ + 
+
+    f"Here is the `schema of the existing data`: {cl.user_session.get('col_map', {})}, " + 
+    f"the `chat_history`: {cl.user_session.get('message_history', [])}, " + 
+    f"and `msg_context`: {cl.user_session.get('msg_context', {})}")
+
     
     # Add system message to the beginning of messages if it's not already there
     messages_with_system = [system_message] + messages
@@ -962,18 +1061,20 @@ model = model.bind_tools(tools)
 final_model = final_model.with_config(tags=["final_node"])
 tool_node = ToolNode(tools=tools)
 
+# Create the graph with enhanced state
 builder = StateGraph(MessagesState)
 
+# Add all nodes
 builder.add_node("agent", call_model)
 builder.add_node("tools", tool_node)
 builder.add_node("final", call_final_model)
 
+# Update edges
 builder.add_edge(START, "agent")
 builder.add_conditional_edges(
     "agent",
     should_continue,
 )
-
 builder.add_edge("tools", "agent")
 builder.add_edge("final", END)
 
@@ -1002,27 +1103,35 @@ async def start_chat():
     cl.user_session.set("web_content", "")
     cl.user_session.set("data", {})
     cl.user_session.set("message_history", [])
+    # Note: clarification is now handled interactively using AskUserMessage
 
 @cl.on_message
 async def on_message(msg: cl.Message):
     message_history = cl.user_session.get("message_history", [])
+    
+    # Add the user's message to history
     message_history.append(HumanMessage(content=msg.content))
     
     config = {"configurable": {"thread_id": cl.context.session.id}}
     cb = cl.LangchainCallbackHandler()
     final_answer = cl.Message(content="")
     
-    async for msg, metadata in graph.astream({"messages": message_history}, stream_mode="messages", config=RunnableConfig(callbacks=[cb], **config)):
-        if (msg.content and not isinstance(msg, HumanMessage) and metadata["langgraph_node"] == "final"):
+    async for msg, metadata in graph.astream(
+        {"messages": message_history}, 
+        stream_mode="messages", 
+        config=RunnableConfig(callbacks=[cb], **config)
+    ):
+        # Stream the final answer from the final node
+        if metadata.get("langgraph_node") == "final" and msg.content:
             await final_answer.stream_token(msg.content)
     
     await final_answer.send()
     
-    # Store the AI response content as an AIMessage
+    # Store the AI response
     message_history.append(AIMessage(content=final_answer.content))
-
     cl.user_session.set("message_history", message_history)
-
+    
+    # Handle visualization if code was generated
     code = cl.user_session.get("code")
     if code:
         # Get the data from user session to make it available in exec scope
@@ -1056,3 +1165,8 @@ def on_stop():
 @cl.on_chat_end
 def on_chat_end():
     print("The user disconnected!")
+
+@cl.on_logout
+def main(request: Request, response: Response):
+    print("The user logged out!")
+    response.delete_cookie("my_cookie")    
