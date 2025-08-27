@@ -59,34 +59,33 @@ async def load_web_content(url: str) -> str:
     """
     try:
         async with cl.Step(name="", type="run") as step:
-            # Stream the step name token by token
-            step_name = "Loading web content from the URL."
-            current_name = ""
-            for char in step_name:
-                current_name += char
-                step.name = current_name
-                await step.update()
-                await asyncio.sleep(0.05)  # Small delay for streaming effect
+            step.name = "Loading web content from the URL."
+            await step.update()
+            
             if not url:
-                step.output = "No URL provided"
+                await step.stream_token("No URL provided")
                 step.name = "Web content loading failed."
                 await step.update()
+                await cl.sleep(0.5)
+                await step.remove()            
                 return "No URL provided"
             
             # Attention: Web content is forgotton after the query is answered. 
             app = Firecrawl()
             docs = app.scrape(url)
             content = docs.markdown
-            step.output += "Web content loaded successfully..."
+            await step.stream_token("Web content loaded successfully...")
             cl.user_session.set("web_content", content)
             # Update step name to show completion
             step.name = "Web content loading is done."
             await step.update()
             return {"web_content": content}
     except Exception as e:
-        step.output = f"Error loading web content: {str(e)}"
+        await step.stream_token(f"Error loading web content: {str(e)}")
         step.name = "Web content loading failed."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()            
         return f"Error loading web content: {str(e)}"
 
 @tool
@@ -97,22 +96,16 @@ async def extract_data(query: str) -> str:
     read the data of these message types and fields from the file, and return the results.
     """
     
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting data extraction process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
+    async with cl.Step(name="Starting data extraction process", type="run") as step:
         try:
             # Step 1: Check for uploaded file
+            await step.stream_token("Starting data extraction process...\n")
+            
             user_id = get_user_id()        
             headers = {"user-id": user_id}
             response = requests.get(f"{base_url}/api/files", headers=headers)
             
-            step.output += "Retrieved file information from API\n"
+            await step.stream_token("Retrieved file information from API\n")
             
             file_id = ""
             if response.status_code == 200:
@@ -120,18 +113,18 @@ async def extract_data(query: str) -> str:
                 file_path = file_data.get("file_path", "")
                 file_id = file_data.get("file_id", "")
                 if file_path:
-                    step.output += f"Using uploaded file: {file_path}\n"
+                    await step.stream_token(f"Using uploaded file: {file_path}\n")
                 else:
-                    step.output += "No file uploaded. Please upload a log file first.\n"
+                    await step.stream_token("No file uploaded. Please upload a log file first.\n")
                     return f"No file uploaded. Please upload a log file first."
             else:
-                step.output += f"API request failed with status {response.status_code}\n"
+                await step.stream_token(f"API request failed with status {response.status_code}\n")
                 return f"API request failed with status {response.status_code}: {response.text}"
             
             # Step 2: Fetch or retrieve schema
             
             if cl.user_session.get("file_id") != file_id:
-                step.output += "New file detected, fetching message schema...\n"
+                await step.stream_token("New file detected, fetching message schema...\n")
                 
                 # Get schema from API instead of reading file directly
                 schema_response = requests.get(f"{base_url}/api/files/{file_id}/schema", headers=headers)
@@ -157,9 +150,8 @@ async def extract_data(query: str) -> str:
                 msg_context = cl.user_session.get("msg_context")
 
             # Step 3: AI Analysis for column mapping
-            
-            step.output += "Using AI to identify relevant fields for your query...\n"
-            step.output += f"Query: '{query}'\n"
+            await step.stream_token("Using AI to identify relevant fields for your query...\n")
+            await step.stream_token(f"Query: '{query}'\n")
             
             template = """
             Based on the user query: {query}, identify the most relevant log message type(s) 
@@ -169,50 +161,35 @@ async def extract_data(query: str) -> str:
             identify the most relevant log message type(s) and the most relevant list of fields within them 
             needed to answer the user query: {web_content}
 
-            ## IMPORTANT NOTE: 
-            You don't have to call this tool all the time. Sometimes the user might 
-            ask a follow up question or ask about something that can be answered from the chat history. 
-            In those cases, don't call this tool.
-            
-            CRITICAL: Call this tool ONCE and get all the relevant data based on the user query in ONE CALL.
-            If the user asks for multiple related values (e.g., "roll and pitch", "latitude and longitude"), 
-            include ALL of them in the SAME dictionary rather than making separate tool calls.
-
-            **Which data I should extract if the user asks for the anomalies/issues observed during the flight?**
-            Unless the user is specific about the data he wants to check for anomalies/issues, 
-            you can check for ERR data and other data types that makes sense to you based on the user query 
+            **Which log message type(s) and field(s) I should extract if the user asks for the anomalies/issues observed during the flight?**
+            Unless the user is specific about the log message type(s) and field(s) he wants to check for anomalies/issues, 
+            you can check for ERR log message type and other log message types that make sense to you based on the user query 
             if they are in this list: {msg_context} 
             
             IMPORTANT RULES:  
-            - The `extract_data` tool is LIMITED to a maximum of 3 LogMessageTypes. If you need more, extract the most relevant ones or make multiple requests.
+            - The `extract_data` tool is LIMITED to a maximum of 3 LogMessageTypes. 
+            If you need more, extract the most relevant ones or make multiple requests.
 
             - It is VERY IMPORTANT that the log message type(s) and field(s) you return are 
             part of the log message type(s) in the `msg_context`: {msg_context}.
             
-            The name of the log message type(s) and field(s) in the uploaded file 
-            might now always be the same as the ones in the msg_context. 
-            
-            For instance, you might see the log message type "ATTITUDE" in the uploaded file 
-            while you see "ATT" in the the msg_context. 
-
-            A user might upload a file, ask for the maximum value of a pitch and 
-            it can be found in the "ATTITUDE" log message type in one file 
-            and in the "ATT" log message type in the next file uploaded. Be careful about these. 
-            
-            Always return the log message type(s) and field(s) in the `msg_context`.
-            - Respond with ONLY one Python dictionary in this exact format, no extra text or explanation:
+            - Respond with ONLY one Python dictionary in the exact format below, no extra text or explanation:
 
             {{'LogMessageType': ['field1', 'field2', ...\n], ...\n}}
 
             - Replace 'LogMessageType' and field names with your best guesses in {msg_context}, 
             based on the provided field descriptions.  
+
             - Consider relationships between fields. For example, if the query asks for the time when the highest longitude is observed, 
             return both the longitude field and the time field together.  
+
             - For multiple related values in the same query, group them in the same dictionary entry when they belong to the same message type.
+
             - Only include fields necessary to answer the query, avoid irrelevant ones.  
+
             - Do NOT output placeholders or quotes around keys like 'log message type'.  
+
             - Do NOT include anything other than the Python dictionary.
-            - If you are not sure about the log message types and/or field names, ask the user for clarification.
             
             EXAMPLES:
             - Query: "What is the average roll and pitch values?" → {{'ATT': ['Roll', 'Pitch']}}
@@ -222,23 +199,30 @@ async def extract_data(query: str) -> str:
 
             web_content = cl.user_session.get("web_content")
             if web_content == "":
-                step.output += "No web content available.\n"
+                await step.stream_token("No web content available.\n")
             else:
-                step.output += "Web content available.\n"
+                await step.stream_token("Web content available.\n")
                 
-
             prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context"], template=template)
             # Use the global model that's already configured
             chain = prompt | model
             result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context})
-            step.output += f"AI identified relevant fields: {result.content.strip()}\n"
-            col_map = ast.literal_eval(result.content.strip())
-            cl.user_session.set("col_map", col_map)
+            await step.stream_token(f"AI identified relevant fields: {result.content.strip()}\n")
+            if result.content.strip() != "":
+                col_map = ast.literal_eval(result.content.strip())
+                cl.user_session.set("col_map", col_map)
+            else:
+                await step.stream_token("No relevant fields found.\n")
+                step.name = "No relevant fields found."
+                await step.update()
+                await cl.sleep(0.5)
+                await step.remove()            
+                return step.name
             
-            step.output += f"AI identified relevant fields: {col_map}\n"
+            await step.stream_token(f"AI identified relevant fields: {col_map}\n")
             
             # Step 4: Extract data using the API endpoint
-            step.output += "Extracting data from log file using API...\n"
+            await step.stream_token("Extracting data from log file using API...\n")
             
             user_id = get_user_id()
             headers = {"user-id": user_id}
@@ -246,43 +230,49 @@ async def extract_data(query: str) -> str:
             response = requests.post(f"{base_url}/api/process", json=col_map, headers=headers)
                     
             if response.status_code != 200:
-                step.output += f"API request failed with status {response.status_code}\n"
+                await step.stream_token(f"API request failed with status {response.status_code}\n")
                 return f"API request failed with status {response.status_code}: {response.text}"
                 
             response_data = response.json()
             if not response_data.get("success"):
-                step.output += f"API processing failed: {response_data.get('error', 'Unknown error')}\n"
+                await step.stream_token(f"API processing failed: {response_data.get('error', 'Unknown error')}\n")
                 return f"API processing failed: {response_data.get('error', 'Unknown error')}"
 
-            step.output += "Successfully retrieved data from API\n"
+            await step.stream_token("Successfully retrieved data from API\n")
             data = response_data["data"]
             
             # Step 5: Process and clean the data
             final_data = {}
             
-            step.output += "Processing and cleaning data...\n"
+            await step.stream_token("Processing and cleaning data...\n")
             
             for msg_type, rows in data.items():
                 if rows:
                     df = pd.DataFrame(rows)
                     df.dropna(axis=1, how='all', inplace=True) 
                     final_data[msg_type] = df
-                    step.output += f"  Processed {len(df)} rows for {msg_type}\n"
+                    await step.stream_token(f"  Processed {len(df)} rows for {msg_type}\n")
             
-            step.output += f"Data extraction completed! Extracted {len(final_data)} message types.\n"
+            await step.stream_token(f"Data extraction completed! Extracted {len(final_data)} message types.\n")
             cl.user_session.set("data", final_data)
             
             # Update step name to show completion
             step.name = "Data extraction process is done."
             await step.update()
-            
+
+            await cl.sleep(0.5)
+            await step.remove()
+
             return {"data": final_data}
                 
         except Exception as e:
-            step.output += f"Error occurred: {str(e)}\n"
+            await step.stream_token(f"Error occurred: {str(e)}\n")
             # Update step name to show error
             step.name = "Data extraction process failed."
             await step.update()
+
+            await cl.sleep(0.5)
+            await step.remove()            
             return f"Error in extract_data: {str(e)}"
 
 @tool
@@ -290,47 +280,41 @@ async def average(data_description: str):
     """
     Calculate the average value of numeric fields in the data.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting average calculation process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
+    async with cl.Step(name="Starting average calculation process", type="run") as step:
+        await step.stream_token("Starting average calculation process...\n")
         
         data = filter_data()
         if not data:
-            step.name = "No data is available for average calculation."
-            await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
+            await step.stream_token("No data available in session. Please extract data first.\n")
             return "No data available. Please extract data first."
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 avg_values = numeric_cols.mean()
                 result_parts.append(f"Average values in {msg_type}:")
                 
                 for col, val in avg_values.items():
                     result_parts.append(f"  {col}: {val}")
-                    step.output += f"Calculated average for {col}: {val:.6f}\n"
+                    await step.stream_token(f"Calculated average for {col}: {val:.6f}\n")
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
         
-        step.output += "Average calculation completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Average calculation completed successfully.\n")
+        
         step.name = "Average calculation process is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"average": "\n".join(result_parts)}
 
 @tool
@@ -339,47 +323,41 @@ async def total_sum(data_description: str):
     Calculate the sum of numeric fields in the data.
     
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting sum calculation process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
+    async with cl.Step(name="Starting sum calculation process", type="run") as step:
+        await step.stream_token("Starting sum calculation process...\n")
         
         data = filter_data()
         if not data:
-            step.name = "No data is available for sum calculation."
-            await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
+            await step.stream_token("No data available in session. Please extract data first.\n")
             return "No data available. Please extract data first."
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 sum_values = numeric_cols.sum()
                 result_parts.append(f"Sum of numeric fields in {msg_type}:")
                 
                 for col, val in sum_values.items():
                     result_parts.append(f"  {col}: {val}")
-                    step.output += f"Calculated sum for {col}: {val}\n"
+                    await step.stream_token(f"Calculated sum for {col}: {val}\n")
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
         
-        step.output += "Sum calculation completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Sum calculation completed successfully.\n")
+        
         step.name = "Sum calculation process is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"sum": "\n".join(result_parts)}
 
 @tool
@@ -389,34 +367,26 @@ async def maximum(data_description: str):
     If the user ask for only the maximum value, you can return the maximum value.
     But if the user asks for the maximum value and when it occurred, return the maximum value and when it occurred.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting maximum value analysis."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-        
+    async with cl.Step(name="Starting maximum value analysis", type="run") as step:
         data = filter_data()
         if not data:
-            step.name = "No data is available for maximum value analysis."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
                 result_parts.append(f"When maximum values occurred in {msg_type}:")
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 for col in numeric_cols.columns:
                     max_idx = df[col].idxmax()
@@ -424,7 +394,7 @@ async def maximum(data_description: str):
                     max_value = max_row[col]
                     
                     result_parts.append(f"Maximum {col}: {max_value}")
-                    step.output += f"Found maximum {col}: {max_value} at index {max_idx}\n"
+                    await step.stream_token(f"Found maximum {col}: {max_value} at index {max_idx}\n")
                     
                     # Include all available context from that row
                     for field, value in max_row.items():
@@ -432,12 +402,15 @@ async def maximum(data_description: str):
                             result_parts.append(f"    {field}: {value}")
                     result_parts.append("")  # Add space between fields   
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
         
-        step.output += "Maximum value analysis completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Maximum value analysis completed successfully.\n")
+        
         step.name = "Maximum value analysis is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"maximum": "\n".join(result_parts)}
 
 @tool
@@ -447,34 +420,26 @@ async def minimum(data_description: str):
     If the user ask for only the minimum value, you can return the minimum value.
     But if the user asks for the minimum value and when it occurred, return the minimum value and when it occurred.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting minimum value analysis."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-
+    async with cl.Step(name="Starting minimum value analysis", type="run") as step:
         data = filter_data()
         if not data:
-            step.name = "No data is available for minimum value analysis."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
                 result_parts.append(f"When minimum values occurred in {msg_type}:")
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 for col in numeric_cols.columns:
                     min_idx = df[col].idxmin()
@@ -482,7 +447,7 @@ async def minimum(data_description: str):
                     min_value = min_row[col]
                     
                     result_parts.append(f"  Minimum {col}: {min_value}")
-                    step.output += f"Found minimum {col}: {min_value} at index {min_idx}\n"
+                    await step.stream_token(f"Found minimum {col}: {min_value} at index {min_idx}\n")
                     
                     # Include all available context from that row
                     for field, value in min_row.items():
@@ -490,12 +455,15 @@ async def minimum(data_description: str):
                             result_parts.append(f"    {field}: {value}")
                     result_parts.append("")  # Add space between fields    
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
         
-        step.output += "Minimum value analysis completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Minimum value analysis completed successfully.\n")
+        
         step.name = "Minimum value analysis is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"minimum": "\n".join(result_parts)} 
 
 @tool
@@ -503,44 +471,36 @@ async def detect_oscillations(data_description: str):
     """
     Detect oscillatory patterns in the data, including periodic fluctuations and recurring cycles.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting oscillation detection process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-        
+    async with cl.Step(name="Starting oscillation detection process", type="run") as step:
         data = filter_data()
         if not data:
-            step.name = "No data is available for oscillation detection."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."     
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
 
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
                 result_parts.append(f"Oscillation analysis for {msg_type}:")
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 # Sort by timestamp if available
                 sorted_df = df.copy()
                 timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
                 if timestamp_cols:
                     sorted_df = df.sort_values(by=timestamp_cols[0])
-                    step.output += f"Sorted data by {timestamp_cols[0]} for oscillation analysis.\n"
+                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for oscillation analysis.\n")
                 
                 for col in numeric_cols.columns:
-                    step.output += f"Analyzing oscillations in {col}...\n"
+                    await step.stream_token(f"Analyzing oscillations in {col}...\n")
                     
                     values = sorted_df[col].dropna()
                     if len(values) < 6:  # Need minimum points for oscillation detection
@@ -621,7 +581,7 @@ async def detect_oscillations(data_description: str):
                     
                     if oscillation_score >= 3:
                         result_parts.append(f"    OSCILLATION DETECTED - Strong oscillatory pattern")
-                        step.output += f"Strong oscillation detected in {col} (score: {oscillation_score}).\n"
+                        await step.stream_token(f"Strong oscillation detected in {col} (score: {oscillation_score}).\n")
                         
                         # Show key oscillation points
                         if peaks:
@@ -639,10 +599,10 @@ async def detect_oscillations(data_description: str):
                     
                     elif oscillation_score >= 1:
                         result_parts.append(f"    WEAK OSCILLATION - Some oscillatory characteristics")
-                        step.output += f"Weak oscillation detected in {col} (score: {oscillation_score}).\n"
+                        await step.stream_token(f"Weak oscillation detected in {col} (score: {oscillation_score}).\n")
                     else:
                         result_parts.append(f"    NO OSCILLATION - Data appears stable/trending")
-                        step.output += f"No significant oscillation in {col}.\n"
+                        await step.stream_token(f"No significant oscillation in {col}.\n")
                     
                     # Add detailed indicators
                     if oscillation_indicators:
@@ -652,14 +612,17 @@ async def detect_oscillations(data_description: str):
                 
                 result_parts.append("")  # Space between message types
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
                 result_parts.append(f"No numeric data available in {msg_type} for oscillation analysis.")
                 result_parts.append("")
         
-        step.output += "Oscillation detection completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Oscillation detection completed successfully.\n")
+        
         step.name = "Oscillation detection process is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"oscillations": "\n".join(result_parts)}        
 
 @tool
@@ -667,44 +630,36 @@ async def detect_sudden_changes(data_description: str):
     """
     Detect sudden changes in the data.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting change detection process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-        
+    async with cl.Step(name="Starting change detection process", type="run") as step:
         data = filter_data()
         if not data:
-            step.name = "No data is available for sudden changes detection."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."     
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
 
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
                 result_parts.append(f"Sudden changes detected in {msg_type}:")
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 # Sort by timestamp if available
                 sorted_df = df.copy()
                 timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
                 if timestamp_cols:
                     sorted_df = df.sort_values(by=timestamp_cols[0])
-                    step.output += f"Sorted data by {timestamp_cols[0]} for change detection.\n"
+                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for change detection.\n")
                 
                 for col in numeric_cols.columns:
-                    step.output += f"Analyzing sudden changes in {col}...\n"
+                    await step.stream_token(f"Analyzing sudden changes in {col}...\n")
                     
                     # Calculate percentage changes between consecutive values
                     values = sorted_df[col].dropna()
@@ -718,7 +673,7 @@ async def detect_sudden_changes(data_description: str):
                     
                     if len(sudden_changes) > 0:
                         result_parts.append(f"  {col} sudden changes (>{threshold*100}%):")
-                        step.output += f"Found {len(sudden_changes)} sudden changes in {col}.\n"
+                        await step.stream_token(f"Found {len(sudden_changes)} sudden changes in {col}.\n")
                         
                         for idx in sudden_changes.index:
                             change_row = sorted_df.loc[idx]
@@ -742,17 +697,20 @@ async def detect_sudden_changes(data_description: str):
                             result_parts.append("")  # Add space between changes
                     else:
                         result_parts.append(f"  No sudden changes detected in {col}")
-                        step.output += f"No sudden changes detected in {col}.\n"
+                        await step.stream_token(f"No sudden changes detected in {col}.\n")
                 
                 result_parts.append("")  # Add space between message types
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
                 result_parts.append(f"No numeric data available in {msg_type} for change detection.")
         
-        step.output += "Sudden changes detection completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Sudden changes detection completed successfully.\n")
+        
         step.name = "Sudden changes detection process is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"sudden_changes": "\n".join(result_parts)}
 
 @tool
@@ -761,44 +719,36 @@ async def detect_outliers(data_description: str):
     Detect statistical outliers in the data using multiple detection methods.
     Identifies data points that deviate significantly from normal patterns.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting outlier detection process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-        
+    async with cl.Step(name="Starting outlier detection process", type="run") as step: 
         data = filter_data()
         if not data:
-            step.name = "No data is available for outlier detection."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."     
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
 
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
         result_parts = []
         
         for msg_type, df in data.items():
-            step.output += f"Processing {msg_type} with {len(df)} rows...\n"
+            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
                 result_parts.append(f"Outlier analysis for {msg_type}:")
-                step.output += f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n"
+                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 # Sort by timestamp if available for better context
                 sorted_df = df.copy()
                 timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
                 if timestamp_cols:
                     sorted_df = df.sort_values(by=timestamp_cols[0])
-                    step.output += f"Sorted data by {timestamp_cols[0]} for outlier context.\n"
+                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for outlier context.\n")
                 
                 for col in numeric_cols.columns:
-                    step.output += f"Analyzing outliers in {col}...\n"
+                    await step.stream_token(f"Analyzing outliers in {col}...\n")
                     
                     values = sorted_df[col].dropna()
                     if len(values) < 4:  # Need minimum points for outlier detection
@@ -819,7 +769,7 @@ async def detect_outliers(data_description: str):
                     if len(iqr_outliers) > 0:
                         outliers_found['IQR'] = iqr_outliers
                         all_outlier_indices.update(iqr_outliers.index)
-                        step.output += f"IQR method found {len(iqr_outliers)} outliers in {col}.\n"
+                        await step.stream_token(f"IQR method found {len(iqr_outliers)} outliers in {col}.\n")
                     
                     # Method 2: Z-Score Method (values beyond 2.5 standard deviations)
                     if len(values) >= 6:  # Z-score needs reasonable sample size
@@ -833,7 +783,7 @@ async def detect_outliers(data_description: str):
                             if len(z_outliers) > 0:
                                 outliers_found['Z-Score'] = z_outliers
                                 all_outlier_indices.update(z_outliers.index)
-                                step.output += f"Z-Score method found {len(z_outliers)} outliers in {col}.\n"
+                                await step.stream_token(f"Z-Score method found {len(z_outliers)} outliers in {col}.\n")
                     
                     # Method 3: Modified Z-Score using Median Absolute Deviation (MAD)
                     median_val = values.median()
@@ -846,7 +796,7 @@ async def detect_outliers(data_description: str):
                         if len(mad_outliers) > 0:
                             outliers_found['MAD'] = mad_outliers
                             all_outlier_indices.update(mad_outliers.index)
-                            step.output += f"MAD method found {len(mad_outliers)} outliers in {col}.\n"
+                            await step.stream_token(f"MAD method found {len(mad_outliers)} outliers in {col}.\n")
                     
                     # Method 4: Percentile Method (beyond 1st and 99th percentiles)
                     p1 = values.quantile(0.01)
@@ -856,7 +806,7 @@ async def detect_outliers(data_description: str):
                     if len(percentile_outliers) > 0:
                         outliers_found['Percentile'] = percentile_outliers
                         all_outlier_indices.update(percentile_outliers.index)
-                        step.output += f"Percentile method found {len(percentile_outliers)} outliers in {col}.\n"
+                        await step.stream_token(f"Percentile method found {len(percentile_outliers)} outliers in {col}.\n")
                     
                     # Report findings
                     result_parts.append(f"  {col} outlier analysis:")
@@ -922,20 +872,23 @@ async def detect_outliers(data_description: str):
                     
                     else:
                         result_parts.append(f"    NO OUTLIERS DETECTED - Data appears normally distributed")
-                        step.output += f"No outliers detected in {col}.\n"
+                        await step.stream_token(f"No outliers detected in {col}.\n")
                     
                     result_parts.append("")  # Space between columns
                 
                 result_parts.append("")  # Space between message types
             else:
-                step.output += f"No numeric fields found in {msg_type}.\n"
+                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
                 result_parts.append(f"No numeric data available in {msg_type} for outlier analysis.")
                 result_parts.append("")
         
-        step.output += "Outlier detection completed successfully.\n"
-        # Update step name to show completion
+        await step.stream_token("Outlier detection completed successfully.\n")
+        
         step.name = "Outlier detection process is done."
         await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
         return {"outliers": "\n".join(result_parts)}        
 
 @tool
@@ -955,25 +908,17 @@ async def detect_events(event_description: str):
     - "When did GPS yaw become available?"
     - "When was the first instance of RC signal loss?"
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting event detection process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-        
+    async with cl.Step(name="Starting event detection process", type="run") as step:
         data = filter_data()
         if not data:
-            step.name = "No data is available for event detection."
+            step.name = "No data available."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
-        step.output += f"Analyzing event: '{event_description}'\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
+        await step.stream_token(f"Analyzing event: '{event_description}'\n")
         
         # Use AI to interpret the event description and create detection logic
         template = """
@@ -1009,9 +954,9 @@ async def detect_events(event_description: str):
         
         try:
             detection_config = ast.literal_eval(result.content.strip())
-            step.output += f"AI parsed event detection config: {detection_config}\n"
+            await step.stream_token(f"AI parsed event detection config: {detection_config}\n")
         except Exception as e:
-            step.output += f"Error parsing detection config: {str(e)}\n"
+            await step.stream_token(f"Error parsing detection config: {str(e)}\n")
             return f"Error parsing event detection logic: {str(e)}"
         
         # Find the target message type in available data
@@ -1023,13 +968,13 @@ async def detect_events(event_description: str):
                 matching_msg_types.append(msg_type)
         
         if not matching_msg_types:
-            step.output += f"No matching message type found for '{target_msg_type}' in available data: {list(data.keys())}\n"
+            await step.stream_token(f"No matching message type found for '{target_msg_type}' in available data: {list(data.keys())}\n")
             return f"No data available for message type '{target_msg_type}'. Available types: {list(data.keys())}"
         
         results = []
         
         for msg_type in matching_msg_types:
-            step.output += f"Analyzing {msg_type} for event detection...\n"
+            await step.stream_token(f"Analyzing {msg_type} for event detection...\n")
             df = data[msg_type]
             
             if df.empty:
@@ -1039,7 +984,7 @@ async def detect_events(event_description: str):
             timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
             if timestamp_cols:
                 df = df.sort_values(by=timestamp_cols[0])
-                step.output += f"Sorted data by {timestamp_cols[0]}\n"
+                await step.stream_token(f"Sorted data by {timestamp_cols[0]}\n")
             
             condition_type = detection_config.get("condition_type")
             field = detection_config.get("field")
@@ -1047,11 +992,11 @@ async def detect_events(event_description: str):
             # Check if the target field exists
             matching_fields = [col for col in df.columns if field.lower() in col.lower() or col.lower() in field.lower()]
             if not matching_fields:
-                step.output += f"Field '{field}' not found in {msg_type}. Available fields: {list(df.columns)}\n"
+                await step.stream_token(f"Field '{field}' not found in {msg_type}. Available fields: {list(df.columns)}\n")
                 continue
                 
             target_field = matching_fields[0]
-            step.output += f"Using field '{target_field}' for detection\n"
+            await step.stream_token(f"Using field '{target_field}' for detection\n")
             
             # Apply detection logic based on condition type
             event_detected = False
@@ -1061,7 +1006,7 @@ async def detect_events(event_description: str):
                 operator = detection_config.get("operator")
                 value = detection_config.get("value")
                 
-                step.output += f"Checking threshold condition: {target_field} {operator} {value}\n"
+                await step.stream_token(f"Checking threshold condition: {target_field} {operator} {value}\n")
                 
                 if operator == ">=":
                     condition_mask = df[target_field] >= value
@@ -1076,7 +1021,7 @@ async def detect_events(event_description: str):
                 elif operator == "!=":
                     condition_mask = df[target_field] != value
                 else:
-                    step.output += f"Unknown operator: {operator}\n"
+                    await step.stream_token(f"Unknown operator: {operator}\n")
                     continue
                 
                 # Find first occurrence where condition is True
@@ -1087,7 +1032,7 @@ async def detect_events(event_description: str):
                     
             elif condition_type == "signal_loss":
                 loss_indicators = detection_config.get("loss_indicators", [])
-                step.output += f"Checking signal loss condition for indicators: {loss_indicators}\n"
+                await step.stream_token(f"Checking signal loss condition for indicators: {loss_indicators}\n")
                 
                 # Check for any of the loss indicators
                 condition_mask = pd.Series([False] * len(df), index=df.index)
@@ -1103,7 +1048,7 @@ async def detect_events(event_description: str):
                     event_detected = True
                     
             elif condition_type == "availability":
-                step.output += f"Checking availability condition for field: {target_field}\n"
+                await step.stream_token(f"Checking availability condition for field: {target_field}\n")
                 
                 # Check when field becomes available (non-null, non-zero, valid)
                 condition_mask = (df[target_field].notna()) & (df[target_field] != 0)
@@ -1119,7 +1064,7 @@ async def detect_events(event_description: str):
                     
             elif condition_type == "state_change":
                 target_state = detection_config.get("target_state")
-                step.output += f"Checking state change to: {target_state}\n"
+                await step.stream_token(f"Checking state change to: {target_state}\n")
                 
                 # Find first occurrence of target state
                 if df[target_field].dtype == 'object':
@@ -1134,7 +1079,7 @@ async def detect_events(event_description: str):
             
             # Record results
             if event_detected and first_occurrence is not None:
-                step.output += f"Event detected in {msg_type} at index {first_occurrence.name}\n"
+                await step.stream_token(f"Event detected in {msg_type} at index {first_occurrence.name}\n")
                 
                 result_entry = {
                     "message_type": msg_type,
@@ -1147,15 +1092,15 @@ async def detect_events(event_description: str):
                 # Add timestamp if available
                 if timestamp_cols:
                     result_entry["timestamp"] = first_occurrence[timestamp_cols[0]]
-                    step.output += f"Event occurred at timestamp: {first_occurrence[timestamp_cols[0]]}\n"
+                    await step.stream_token(f"Event occurred at timestamp: {first_occurrence[timestamp_cols[0]]}\n")
                 
                 results.append(result_entry)
             else:
-                step.output += f"Event not detected in {msg_type}\n"
+                await step.stream_token(f"Event not detected in {msg_type}\n")
         
         # Format results
         if results:
-            step.output += f"Event detection completed! Found {len(results)} occurrence(s).\n"
+            await step.stream_token(f"Event detection completed! Found {len(results)} occurrence(s).\n")
             
             result_parts = [f"Event Detection Results for: '{event_description}'"]
             result_parts.append("=" * 60)
@@ -1179,7 +1124,7 @@ async def detect_events(event_description: str):
             await step.update()
             return {"events": "\n".join(result_parts)}
         else:
-            step.output += "No events detected matching the specified criteria.\n"
+            await step.stream_token("No events detected matching the specified criteria.\n")
             # Update step name to show completion
             step.name = "Event detection process is done."
             await step.update()
@@ -1190,25 +1135,17 @@ async def visualize(query: str):
     """
     Visualize the data.
     """
-    async with cl.Step(name="", type="run") as step:
-        # Stream the step name token by token
-        step_name = "Starting visualization process."
-        current_name = ""
-        for char in step_name:
-            current_name += char
-            step.name = current_name
-            await step.update()
-            await asyncio.sleep(0.05)  # Small delay for streaming effect
-
+    async with cl.Step(name="Starting visualization process.", type="run") as step:
         data = filter_data()
         if not data:
             step.name = "No data is available for visualization."
             await step.update()
-            step.output += "No data available in session. Please extract data first.\n"
-            return "No data available. Please extract data first."
+            await cl.sleep(0.5)
+            await step.remove()            
+            return step.name
         
-        step.output += f"Found {len(data)} message types in the extracted data.\n"
-        step.output += "Preparing data for visualization by sampling records...\n"
+        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
+        await step.stream_token("Preparing data for visualization by sampling records...\n")
         
         # The data has multiple dataframes, so we need to sample from each one.
         keys = []
@@ -1217,7 +1154,7 @@ async def visualize(query: str):
 
         plt.rcParams.update({'figure.dpi': 150,})                
 
-        step.output += "Generating visualization code using AI model...\n"
+        await step.stream_token("Generating visualization code using AI model...\n")
 
 
         template = """
@@ -1242,11 +1179,11 @@ async def visualize(query: str):
         result = chain.invoke({"user_query": user_query, "keys": keys})
         key = result.content.strip()
 
-        step.output += f"Found the key: {key}\n"
+        await step.stream_token(f"Found the key: {key}\n")
             
         sample_size = min(100, len(data[key]))
         sampled_data = data[key].sample(sample_size, replace=True)
-        step.output += f"Sampled {sample_size} rows from {key} dataset.\n"
+        await step.stream_token(f"Sampled {sample_size} rows from {key} dataset.\n")
         
         template = """
         I have a dataframe in a dictionary called `data` that can be accessed using data[key].
@@ -1279,14 +1216,14 @@ async def visualize(query: str):
         code = result.content.strip()
         code = code.replace("plt.show()", "")  
         
-        step.output += "AI model successfully generated visualization code.\n"
-        step.output += "Code has been prepared for execution.\n"
+        await step.stream_token("AI model successfully generated visualization code.\n")
+        await step.stream_token("Code has been prepared for execution.\n")
         
         # Execute the visualization code
         cl.user_session.set("code", code)
 
-        step.output += f"Visualization ready using data from message types: {list(col_map.keys())}\n"
-        step.output += "Visualization process completed successfully.\n"
+        await step.stream_token(f"Visualization ready using data from message types: {list(col_map.keys())}\n")
+        await step.stream_token("Visualization process completed successfully.\n")
 
         # Update step name to show completion
         step.name = "Visualization process is done."
@@ -1310,6 +1247,18 @@ async def call_model(state: MessagesState):
     You are an assistant that analyzes flight log data. You have access to several tools.
 
     AVAILABLE TOOLS:
+    - `load_web_content`: Use this tool to load the web content if you find URL in the user query and if you think it should be extracted. 
+    - `extract_data`: Use this tool to extract the data that is relevant to the user's query.
+    - `maximum`: Use this tool to find the maximum/highest value of a field.
+    - `minimum`: Use this tool to find the minimum/lowest value of a field.
+    - `average`: Use this tool to find the average value of a field.
+    - `total_sum`: Use this tool to find the total sum of a field.
+    - `visualize`: Use this tool to visualize the data.
+    - `detect_sudden_changes`: Use this tool to detect sudden changes in the data.
+    - `detect_oscillations`: Use this tool to detect oscillations in the data.
+    - `detect_outliers`: Use this tool to detect outliers in the data.
+    - `detect_events`: Use this tool to detect events in the data.
+
     Call `extract_data` tool FIRST when users ask about:
     - Anomalies/issues in the data
     - Maximum/minimum values
@@ -1319,10 +1268,6 @@ async def call_model(state: MessagesState):
     - Any analysis questions about the log data
 
     Call `detect_events` tool when users ask about WHEN specific events occurred:
-    - "When did GPS first achieve a 3D fix?"
-    - "When did GPS signal first get lost?"
-    - "When did GPS yaw become available?"
-    - "When was the first instance of RC signal loss?"
     - Any "when did [event] happen" questions
 
     IMPORTANT RULES:
@@ -1330,7 +1275,7 @@ async def call_model(state: MessagesState):
     - For queries asking about multiple related values (e.g., "roll and pitch", "latitude and longitude", "GPS and altitude"), 
       extract ALL related fields in ONE call rather than making separate calls for each field.
 
-    - When they ask about anomalies, you can use the detect_sudden_changes, detect_oscillations, and detect_outliers tools 
+    - When they ask about anomalies, you can use the `detect_sudden_changes`, `detect_oscillations`, and `detect_outliers` tools 
     to find the sudden changes, oscillations, and outliers in the data and then interpret whether they are anomalies or not.
 
     - For event timing questions, use `detect_events` after extracting relevant data with `extract_data`.
@@ -1364,7 +1309,6 @@ async def call_model(state: MessagesState):
     response = await model.ainvoke(messages_with_system)
     return {"messages": [response]}
     
-@cl.step(name="Response is being checked for accuracy and clarity.", type="run")
 async def quality_assurance_agent(state: MessagesState):
     """
     Quality Assurance Agent that validates and improves the final answer before presenting to user.
@@ -1376,87 +1320,99 @@ async def quality_assurance_agent(state: MessagesState):
     4. Transforms the answer if improvements are needed
     5. Returns the validated/improved version
     """
+    async with cl.Step(name="Response is being checked for accuracy and clarity", type="run") as step:
+        messages = state["messages"]
+        final_answer = messages[-1]
+        
+        # Get context from the conversation
+        user_query = None
+        for msg in reversed(messages):
+            if isinstance(msg, HumanMessage):
+                user_query = msg.content
+                break
+        
+        # Get additional context from session
+        col_map = cl.user_session.get("col_map", {})
+        data_available = bool(cl.user_session.get("data", {}))
+        
+        await step.stream_token("Analyzing response quality...\n")
+        
+        qa_system_prompt = f"""
+        You are a Quality Assurance Agent for flight log data analysis responses. 
+        Your role is to validate and improve the final answer before it reaches the user 
+        based on your knowledge of flight log data and the user's query.
 
-    messages = state["messages"]
-    final_answer = messages[-1]
-    
-    # Get context from the conversation
-    user_query = None
-    for msg in reversed(messages):
-        if isinstance(msg, HumanMessage):
-            user_query = msg.content
-            break
-    
-    # Get additional context from session
-    col_map = cl.user_session.get("col_map", {})
-    data_available = bool(cl.user_session.get("data", {}))
-    
-    qa_system_prompt = f"""
-    You are a Quality Assurance Agent for flight log data analysis responses. 
-    Your role is to validate and improve the final answer before it reaches the user 
-    based on your knowledge of flight log data and the user's query.
+        CONTEXT:
+        - Original User Query: {user_query}
+        
+        TASK: Review the answer below and either return it as-is if it's good, or provide an improved version.
 
-    CONTEXT:
-    - Original User Query: {user_query}
-    
-    TASK: Review the answer below and either return it as-is if it's good, or provide an improved version.
+        VALIDATION CRITERIA:
+        1. **Technical Accuracy**: Does the answer correctly interpret flight log data?
+        2. **Completeness**: Does it fully address the user's question?
+        3. **Clarity**: Is the explanation clear and easy to understand?
+        4. **Context**: Does it make sense given the available data and query?
+        5. **Formatting**: Is it well-structured and readable?
 
-    VALIDATION CRITERIA:
-    1. **Technical Accuracy**: Does the answer correctly interpret flight log data?
-    2. **Completeness**: Does it fully address the user's question?
-    3. **Clarity**: Is the explanation clear and easy to understand?
-    4. **Context**: Does it make sense given the available data and query?
-    5. **Formatting**: Is it well-structured and readable?
+        VALIDATION RULES:
+        - For GPS questions: Ensure proper interpretation of GPS status, satellite counts, fix types
+        - For event timing: Verify timestamps and event logic make sense
+        - For anomaly detection: Check if interpretations are reasonable for flight data
+        - For numerical results: Ensure values are within realistic ranges for aviation data
+        - For visualizations: Confirm descriptions match typical flight patterns
 
-    VALIDATION RULES:
-    - For GPS questions: Ensure proper interpretation of GPS status, satellite counts, fix types
-    - For event timing: Verify timestamps and event logic make sense
-    - For anomaly detection: Check if interpretations are reasonable for flight data
-    - For numerical results: Ensure values are within realistic ranges for aviation data
-    - For visualizations: Confirm descriptions match typical flight patterns
+        INSTRUCTIONS:
+        If the answer is good as-is, return it exactly as provided.
+        If improvements are needed, provide a better version that addresses any issues.
+        DO NOT return JSON - return the actual answer content that should be shown to the user.
+        DO NOT include your evaluation of whether the final answer was good or not. Just return the improved answer.
+        Return ONLY ONE VERSION of the answer - either the original if it's good, or an improved version if needed.
+        NEVER include both the original and improved version in your response.
+        DO NOT include the original answer in the improved answer if you are improving it.
 
-    INSTRUCTIONS:
-    If the answer is good as-is, return it exactly as provided.
-    If improvements are needed, provide a better version that addresses any issues.
-    DO NOT return JSON - return the actual answer content that should be shown to the user.
-    DO NOT include your evaluation of whether the final answer was good or not. Just return the improved answer.
-    Return ONLY ONE VERSION of the answer - either the original if it's good, or an improved version if needed.
-    NEVER include both the original and improved version in your response.
-    DO NOT include the original answer in the improved answer if you are improving it.
+        COMMON ISSUES TO FIX:
+        - Add missing context explanations
+        - Improve formatting and structure
+        - Correct technical inaccuracies
+        - Make incomplete answers more complete
+        - Fix unclear or confusing explanations
+        - Convert LaTeX math notation to readable plain text
+        - Replace mathematical symbols with clear descriptions
+        - Format formulas in a user-friendly way without LaTeX syntax
 
-    COMMON ISSUES TO FIX:
-    - Add missing context explanations
-    - Improve formatting and structure
-    - Correct technical inaccuracies
-    - Make incomplete answers more complete
-    - Fix unclear or confusing explanations
-    - Convert LaTeX math notation to readable plain text
-    - Replace mathematical symbols with clear descriptions
-    - Format formulas in a user-friendly way without LaTeX syntax
-
-    FORMATTING RULES:
-    - Replace LaTeX sin, cos, sqrt functions with plain text versions
-    - Convert fraction notation to (a/b) or "a divided by b" 
-    - Replace multiplication dots with * or ×
-    - Convert Delta symbols to "change in" or "Δ"
-    - Replace complex LaTeX with clear step-by-step explanations
-    - Use simple ASCII characters instead of LaTeX symbols
-    - Remove square brackets around formulas
-    - Convert subscripts and superscripts to readable format
-    - Return the answer in a organized, clean, readable and nice format.
-    """
-    
-    qa_response = await model.ainvoke([
-        SystemMessage(qa_system_prompt),
-        HumanMessage(f"Please validate this answer:\n\n{final_answer.content}")
-    ])
-    
-    # The QA agent now returns the improved answer directly
-    qa_content = qa_response.content.strip()
-    
-    # Return the QA-validated/improved answer
-    improved_response = AIMessage(content=qa_content)
-    return {"messages": [improved_response]}
+        FORMATTING RULES:
+        - Replace LaTeX sin, cos, sqrt functions with plain text versions
+        - Convert fraction notation to (a/b) or "a divided by b" 
+        - Replace multiplication dots with * or ×
+        - Convert Delta symbols to "change in" or "Δ"
+        - Replace complex LaTeX with clear step-by-step explanations
+        - Use simple ASCII characters instead of LaTeX symbols
+        - Remove square brackets around formulas
+        - Convert subscripts and superscripts to readable format
+        - Return the answer in a organized, clean, readable and nice format.
+        """
+        
+        await step.stream_token("Running quality assurance analysis...\n")
+        
+        qa_response = await qa_model.ainvoke([
+            SystemMessage(qa_system_prompt),
+            HumanMessage(f"Please validate this answer:\n\n{final_answer.content}")
+        ])
+        
+        # The QA agent now returns the improved answer directly
+        qa_content = qa_response.content.strip()
+        
+        await step.stream_token("Quality assurance check completed.\n")
+        
+        # Update step name to show completion
+        step.name = "Response is checked."
+        await step.update()
+        await cl.sleep(0.5)
+        await step.remove()
+        
+        # Return the QA-validated/improved answer
+        improved_response = AIMessage(content=qa_content)
+        return {"messages": [improved_response]}
 
 
 tools = [
@@ -1473,7 +1429,8 @@ tools = [
     detect_events
 ]
 
-model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.7, max_tokens=1000).bind_tools(tools)
+model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0, max_tokens=1000, streaming=True).bind_tools(tools)
+qa_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, max_tokens=1000, streaming=True)
 
 tool_node = ToolNode(tools=tools)
 
@@ -1556,29 +1513,36 @@ async def on_message(msg: cl.Message):
     # Handle visualization if code was generated
     code = cl.user_session.get("code")
     if code:
-        # Get the data from user session to make it available in exec scope
-        data = cl.user_session.get("data")
-        
-        # Execute the code with the data variable available
-        exec(code)
-        
-        # Get the current figure and create cl.Pyplot element
-        fig = plt.gcf()
-        fig.set_dpi(300)
-        
-        # Use cl.Pyplot for better visualization display
-        elements = [
-            cl.Pyplot(name="plot", figure=fig, display="inline"),
-        ]
-        
-        await cl.Message(
-            content="Here is your visualization:",
-            elements=elements,
-        ).send()
-        
-        # Clear the figure to free memory
-        plt.close(fig)    
-        cl.user_session.set("code", "") 
+        try:
+            # Get the data from user session to make it available in exec scope
+            data = cl.user_session.get("data")
+            
+            # Execute the code with the data variable available
+            exec(code)
+            
+            # Get the current figure and create cl.Pyplot element
+            fig = plt.gcf()
+            fig.set_dpi(300)
+            
+            # Use cl.Pyplot for better visualization display
+            elements = [
+                cl.Pyplot(name="plot", figure=fig, display="inline"),
+            ]
+            
+            await cl.Message(
+                content="Here is your visualization:",
+                elements=elements,
+            ).send()
+            
+            # Clear the figure to free memory
+            plt.close(fig)    
+            cl.user_session.set("code", "") 
+
+        except Exception as e:
+            error_message = f"Error: {e}"
+            for char in error_message:
+                await step.stream_token(char)
+                await asyncio.sleep(0.01)  # Small delay for streaming effect
 
 @cl.on_stop
 def on_stop():
