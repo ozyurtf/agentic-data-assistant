@@ -184,6 +184,8 @@ async def extract_data(query: str) -> str:
             if they are in this list: {msg_context} 
             
             IMPORTANT RULES:  
+            - The `extract_data` tool is LIMITED to a maximum of 3 LogMessageTypes. If you need more, extract the most relevant ones or make multiple requests.
+
             - It is VERY IMPORTANT that the log message type(s) and field(s) you return are 
             part of the log message type(s) in the `msg_context`: {msg_context}.
             
@@ -667,7 +669,7 @@ async def detect_sudden_changes(data_description: str):
     """
     async with cl.Step(name="", type="run") as step:
         # Stream the step name token by token
-        step_name = "Starting sudden changes detection process."
+        step_name = "Starting change detection process."
         current_name = ""
         for char in step_name:
             current_name += char
@@ -1325,7 +1327,6 @@ async def call_model(state: MessagesState):
 
     IMPORTANT RULES:
     - CRITICAL: Call `extract_data` tool ONLY ONCE per user query. Extract ALL related fields in a SINGLE call.
-    - If you decide to use `extract_data` tool, don't extract more than 3 message types.
     - For queries asking about multiple related values (e.g., "roll and pitch", "latitude and longitude", "GPS and altitude"), 
       extract ALL related fields in ONE call rather than making separate calls for each field.
 

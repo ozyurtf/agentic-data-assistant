@@ -1,6 +1,6 @@
 **Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the features below on top of the UI:
 
-## Features
+# Features
 
 - Backend API development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Agentic chatbot development and integration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
@@ -16,7 +16,7 @@
 - Safety validation for LLM-generated data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 - MCP server for executing data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 
-## Demo 
+# Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
   <iframe width="1000" height="506" 
@@ -28,12 +28,11 @@
   </iframe>
 </div>
 
-## Running  
+# Running  
 
-### 1. Configure Environment Variables
+## Configure Environment Variables
 
-
-Create a .env file in the root folder with the following values:
+Create a `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
 
 ```env 
 # Cesium 
@@ -63,7 +62,33 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 ```
 
-### 2. Create and Activate a Virtual Environment
+**Warning**: It's recommended to use Docker for the most stable experience. Running locally may sometimes result in issues with file uploads that can cause page refreshes or processing failures. The Docker version provides better isolation and consistent behavior. 
+
+
+## Run with Docker 
+
+```bash
+# Build UI (Dockerfile is in root folder)
+docker build -t ui .
+```
+
+```bash
+# Build chatbot (Dockerfile is in chatbot folder)
+docker build -t chatbot ./chatbot
+``` 
+
+```bash 
+# Build fastapi (Dockerfile is in fastapi folder)
+docker build -t fastapi ./fastapi
+```
+
+```bash
+docker compose up
+```
+
+## Run without Docker
+
+### 1. Create and Activate a Virtual Environment
 
 **macOS/Linux:**
 ```bash
@@ -77,7 +102,7 @@ python -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-### 3. Install Dependencies 
+### 2. Install Dependencies 
 
 **macOS/Linux:**
 ```bash
@@ -93,7 +118,7 @@ choco install redis-64
 pip install -r requirements.txt
 ```
 
-### 4. Start Redis Service
+### 3. Start Redis Service
 
 **macOS:**
 ```bash
@@ -115,27 +140,30 @@ redis-server --service-start
 redis-cli ping
 ```
 
-### 5. Run with Docker 
+### 4. Run UI, Chatbot and API
+
+Run the commands below in separate terminals. 
 
 ```bash
-# Build UI (Dockerfile is in root folder)
-docker build -t ui .
+npm install
+
+npm install --save-dev dotenv
+
+npx update-browserslist-db@latest
+
+npm run dev
 ```
 
 ```bash
-# Build chatbot (Dockerfile is in chatbot folder)
-docker build -t chatbot ./chatbot
-``` 
-
-```bash 
-# Build fastapi (Dockerfile is in fastapi folder)
-docker build -t fastapi ./fastapi
+cd chatbot
+chainlit run app.py
 ```
 
 ```bash
-docker compose up
+cd fastapi
+python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-### 6. Interact with Chatbot
+## Interact with Chatbot
 
 Visit `http://localhost:8080/` to interact with the UI and chatbot.
