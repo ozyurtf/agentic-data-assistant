@@ -119,17 +119,17 @@ redis-cli ping
 
 ```bash
 # Build UI (Dockerfile is in root folder)
-docker build -t frontend:latest .
+docker build -t ui .
 ```
 
 ```bash
 # Build chatbot (Dockerfile is in chatbot folder)
-docker build -t chatbot:latest ./chatbot
+docker build -t chatbot ./chatbot
 ``` 
 
 ```bash 
 # Build fastapi (Dockerfile is in fastapi folder)
-docker build -t api:latest ./api
+docker build -t fastapi ./fastapi
 ```
 
 ```bash
