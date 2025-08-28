@@ -24,8 +24,14 @@
 
 # Running  
 
+## Prerequisites
 
-## Create a Folder Inside FastAPI
+- **Python**: 3.11 or higher
+- **Node.js**: 20 or higher
+- **Redis**: Latest stable version
+- **Git**: For submodule initialization
+
+## Create a Folder Inside `fastpi`
 
 ```bash
 mkdir -p fastapi/files
