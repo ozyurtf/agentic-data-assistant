@@ -28,7 +28,8 @@ import asyncio
 import hashlib
 import json
 import time
-matplotlib.use('Agg') 
+from models import *
+matplotlib.use('Agg')
 
 load_dotenv()
 base_url = os.getenv("API_BASE_URL")
@@ -44,21 +45,41 @@ def filter_data() -> dict:
     Filter the data based on the col_map.
     """
     filtered_data = {}
-    data = cl.user_session.get("data")
-    col_map = cl.user_session.get("col_map")
-    for msg_type, rows in data.items():
-        if msg_type in col_map:
-            filtered_data[msg_type] = rows[col_map[msg_type]]            
+    try:
+        data = cl.user_session.get("data")
+        col_map = cl.user_session.get("col_map")
+        for msg_type, rows in data.items():
+            if msg_type in col_map:
+                filtered_data[msg_type] = rows[col_map[msg_type]]            
+    except Exception as e:
+        print(f"Error filtering data: {str(e)}")
+        return {}
     return filtered_data
 
+def get_user_session() -> UserSession:
+    """
+    Get the current user session data as a UserSession model.
+    """
+    return UserSession(
+        msg_context=cl.user_session.get("msg_context", ""),
+        file_id=cl.user_session.get("file_id", ""),
+        web_content=cl.user_session.get("web_content", ""),
+        data=cl.user_session.get("data", {}),
+        col_map=cl.user_session.get("col_map", {}),
+        code=cl.user_session.get("code", ""),
+        message_history=cl.user_session.get("message_history", [])
+    )
+
+
+
 @tool
-async def load_web_content(url: str) -> str:
+async def load_web_content(url: str) -> WebContentResult:
     """
     Load web content from the given URL.
     Use this when user provides a URL and wants to extract content from it.
     """
     try:
-        async with cl.Step(name="", type="run") as step:
+        async with cl.Step(name="", type="tool") as step:
             step.name = "Loading web content from the URL."
             await step.update()
             
@@ -66,9 +87,9 @@ async def load_web_content(url: str) -> str:
                 await step.stream_token("No URL provided")
                 step.name = "Web content loading failed."
                 await step.update()
-                await cl.sleep(0.5)
-                await step.remove()            
-                return "No URL provided"
+                # await cl.sleep(0.5)
+                # await step.remove()            
+                return WebContentResult(web_content="No URL provided")
             
             # Attention: Web content is forgotton after the query is answered. 
             app = Firecrawl()
@@ -79,24 +100,24 @@ async def load_web_content(url: str) -> str:
             # Update step name to show completion
             step.name = "Web content loading is done."
             await step.update()
-            return {"web_content": content}
+            return WebContentResult(web_content=content)
     except Exception as e:
         await step.stream_token(f"Error loading web content: {str(e)}")
         step.name = "Web content loading failed."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()            
-        return f"Error loading web content: {str(e)}"
+        # await cl.sleep(0.5)
+        # await step.remove()            
+        return WebContentResult(web_content=f"Error loading web content: {str(e)}")
 
 @tool
-async def extract_data(query: str) -> str:
+async def extract_data(query: str) -> DataExtractionResult:
     """
     This tool is used to extract the relevant data from the log file.
     It will find the most relevant log message type(s) and the most relevant list of fields to the user query,
     read the data of these message types and fields from the file, and return the results.
     """
     
-    async with cl.Step(name="Starting data extraction process", type="run") as step:
+    async with cl.Step(name="Starting data extraction process", type="tool") as step:
         try:
             # Step 1: Check for uploaded file
             await step.stream_token("Starting data extraction process...\n")
@@ -110,16 +131,17 @@ async def extract_data(query: str) -> str:
             file_id = ""
             if response.status_code == 200:
                 file_data = response.json()
-                file_path = file_data.get("file_path", "")
-                file_id = file_data.get("file_id", "")
+                file_info = FileInfo(**file_data)
+                file_path = file_info.file_path
+                file_id = file_info.file_id
                 if file_path:
                     await step.stream_token(f"Using uploaded file: {file_path}\n")
                 else:
                     await step.stream_token("No file uploaded. Please upload a log file first.\n")
-                    return f"No file uploaded. Please upload a log file first."
+                    return DataExtractionResult(data={"error": "No file uploaded. Please upload a log file first."})
             else:
                 await step.stream_token(f"API request failed with status {response.status_code}\n")
-                return f"API request failed with status {response.status_code}: {response.text}"
+                return DataExtractionResult(data={"error": f"API request failed with status {response.status_code}: {response.text}"})
             
             # Step 2: Fetch or retrieve schema
             
@@ -131,7 +153,8 @@ async def extract_data(query: str) -> str:
                 
                 if schema_response.status_code == 200:
                     schema_data = schema_response.json()
-                    schema = schema_data["schema"]
+                    schema_response_model = SchemaData(**schema_data)
+                    schema = schema_response_model.schema
                     
                     # Format for msg_context
                     lines = []
@@ -145,7 +168,7 @@ async def extract_data(query: str) -> str:
                     cl.user_session.set("data", {})
                     cl.user_session.set("file_id", file_id)
                 else:
-                    return "Failed to get file schema from API"
+                    return DataExtractionResult(data={"error": "Failed to get file schema from API"})
             else:
                 msg_context = cl.user_session.get("msg_context")
 
@@ -210,14 +233,23 @@ async def extract_data(query: str) -> str:
             await step.stream_token(f"AI identified relevant fields: {result.content.strip()}\n")
             if result.content.strip() != "":
                 col_map = ast.literal_eval(result.content.strip())
-                cl.user_session.set("col_map", col_map)
+                
+                # Validate the col_map using ProcessRequest model directly
+                try:
+                    ProcessRequest(col_map=col_map)
+                    cl.user_session.set("col_map", col_map)
+                except Exception as e:
+                    await step.stream_token(f"Invalid column mapping format: {str(e)}. Please try again.\n")
+                    step.name = "Invalid column mapping format."
+                    await step.update()
+                    return DataExtractionResult(data={"error": f"Invalid column mapping format: {str(e)}. Please try again."})
             else:
                 await step.stream_token("No relevant fields found.\n")
                 step.name = "No relevant fields found."
                 await step.update()
-                await cl.sleep(0.5)
-                await step.remove()            
-                return step.name
+                # await cl.sleep(0.5)
+                # await step.remove()            
+                return DataExtractionResult(data={"error": "No relevant fields found."})
             
             await step.stream_token(f"AI identified relevant fields: {col_map}\n")
             
@@ -227,19 +259,22 @@ async def extract_data(query: str) -> str:
             user_id = get_user_id()
             headers = {"user-id": user_id}
             
-            response = requests.post(f"{base_url}/api/process", json=col_map, headers=headers)
+            # Validate col_map using ProcessRequest model
+            process_request = ProcessRequest(col_map=col_map)
+            response = requests.post(f"{base_url}/api/process", json=process_request.dict(), headers=headers)
                     
             if response.status_code != 200:
                 await step.stream_token(f"API request failed with status {response.status_code}\n")
-                return f"API request failed with status {response.status_code}: {response.text}"
+                return DataExtractionResult(data={"error": f"API request failed with status {response.status_code}: {response.text}"})
                 
             response_data = response.json()
-            if not response_data.get("success"):
-                await step.stream_token(f"API processing failed: {response_data.get('error', 'Unknown error')}\n")
-                return f"API processing failed: {response_data.get('error', 'Unknown error')}"
+            process_response = ProcessResponse(**response_data)
+            if not process_response.success:
+                await step.stream_token(f"API processing failed: {process_response.error or 'Unknown error'}\n")
+                return DataExtractionResult(data={"error": f"API processing failed: {process_response.error or 'Unknown error'}"})
 
             await step.stream_token("Successfully retrieved data from API\n")
-            data = response_data["data"]
+            data = process_response.data or {}
             
             # Step 5: Process and clean the data
             final_data = {}
@@ -260,10 +295,10 @@ async def extract_data(query: str) -> str:
             step.name = "Data extraction process is done."
             await step.update()
 
-            await cl.sleep(0.5)
-            await step.remove()
+            # await cl.sleep(0.5)
+            # await step.remove()
 
-            return {"data": final_data}
+            return DataExtractionResult(data=final_data)
                 
         except Exception as e:
             await step.stream_token(f"Error occurred: {str(e)}\n")
@@ -271,22 +306,25 @@ async def extract_data(query: str) -> str:
             step.name = "Data extraction process failed."
             await step.update()
 
-            await cl.sleep(0.5)
-            await step.remove()            
-            return f"Error in extract_data: {str(e)}"
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return DataExtractionResult(data={"error": f"Error in extract_data: {str(e)}"})
 
 @tool
-async def average(data_description: str):
+async def average(data_description: str) -> AverageResult:
     """
     Calculate the average value of numeric fields in the data.
     """
-    async with cl.Step(name="Starting average calculation process", type="run") as step:
+    async with cl.Step(name="Starting average calculation process", type="tool") as step:
         await step.stream_token("Starting average calculation process...\n")
         
         data = filter_data()
         if not data:
             await step.stream_token("No data available in session. Please extract data first.\n")
-            return "No data available. Please extract data first."
+            return AverageResult(
+                message="No data available",
+                average="No data available. Please extract data first."
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -312,24 +350,30 @@ async def average(data_description: str):
         
         step.name = "Average calculation process is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"average": "\n".join(result_parts)}
+        return AverageResult(
+            message="Average calculation completed successfully",
+            average="\n".join(result_parts)
+        )
 
 @tool
-async def total_sum(data_description: str):
+async def total_sum(data_description: str) -> SumResult:
     """
     Calculate the sum of numeric fields in the data.
     
     """
-    async with cl.Step(name="Starting sum calculation process", type="run") as step:
+    async with cl.Step(name="Starting sum calculation process", type="tool") as step:
         await step.stream_token("Starting sum calculation process...\n")
         
         data = filter_data()
         if not data:
             await step.stream_token("No data available in session. Please extract data first.\n")
-            return "No data available. Please extract data first."
+            return SumResult(
+                message="No data available",
+                sum="No data available. Please extract data first."
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -355,26 +399,32 @@ async def total_sum(data_description: str):
         
         step.name = "Sum calculation process is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"sum": "\n".join(result_parts)}
+        return SumResult(
+            message="Sum calculation completed successfully",
+            sum="\n".join(result_parts)
+        )
 
 @tool
-async def maximum(data_description: str):
+async def maximum(data_description: str) -> MaximumResult:
     """
     Find the maximum value and when it occurred, including timestamp and context.
     If the user ask for only the maximum value, you can return the maximum value.
     But if the user asks for the maximum value and when it occurred, return the maximum value and when it occurred.
     """
-    async with cl.Step(name="Starting maximum value analysis", type="run") as step:
+    async with cl.Step(name="Starting maximum value analysis", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return MaximumResult(
+                message="No data available",
+                maximum="No data available. Please extract data first."
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -408,26 +458,32 @@ async def maximum(data_description: str):
         
         step.name = "Maximum value analysis is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"maximum": "\n".join(result_parts)}
+        return MaximumResult(
+            message="Maximum value analysis completed successfully",
+            maximum="\n".join(result_parts)
+        )
 
 @tool
-async def minimum(data_description: str):
+async def minimum(data_description: str) -> MinimumResult:
     """
     Find the minimum value and when it occurred, including timestamp and context.
     If the user ask for only the minimum value, you can return the minimum value.
     But if the user asks for the minimum value and when it occurred, return the minimum value and when it occurred.
     """
-    async with cl.Step(name="Starting minimum value analysis", type="run") as step:
+    async with cl.Step(name="Starting minimum value analysis", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return MinimumResult(
+                message="No data available",
+                minimum="No data available. Please extract data first."
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -461,24 +517,30 @@ async def minimum(data_description: str):
         
         step.name = "Minimum value analysis is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"minimum": "\n".join(result_parts)} 
+        return MinimumResult(
+            message="Minimum value analysis completed successfully",
+            minimum="\n".join(result_parts)
+        ) 
 
 @tool
-async def detect_oscillations(data_description: str):
+async def detect_oscillations(data_description: str) -> OscillationResult:
     """
     Detect oscillatory patterns in the data, including periodic fluctuations and recurring cycles.
     """
-    async with cl.Step(name="Starting oscillation detection process", type="run") as step:
+    async with cl.Step(name="Starting oscillation detection process", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return OscillationResult(
+                message="No data available",
+                oscillations="No data available. Please extract data first."
+            )
 
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -620,24 +682,30 @@ async def detect_oscillations(data_description: str):
         
         step.name = "Oscillation detection process is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"oscillations": "\n".join(result_parts)}        
+        return OscillationResult(
+            message="Oscillation detection completed successfully",
+            oscillations="\n".join(result_parts)
+        )        
 
 @tool
-async def detect_sudden_changes(data_description: str):
+async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
     """
     Detect sudden changes in the data.
     """
-    async with cl.Step(name="Starting change detection process", type="run") as step:
+    async with cl.Step(name="Starting change detection process", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return SuddenChangesResult(
+                message="No data available",
+                sudden_changes="No data available. Please extract data first."
+            )
 
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -708,25 +776,31 @@ async def detect_sudden_changes(data_description: str):
         
         step.name = "Sudden changes detection process is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"sudden_changes": "\n".join(result_parts)}
+        return SuddenChangesResult(
+            message="Sudden changes detection completed successfully",
+            sudden_changes="\n".join(result_parts)
+        )
 
 @tool
-async def detect_outliers(data_description: str):
+async def detect_outliers(data_description: str) -> OutlierResult:
     """
     Detect statistical outliers in the data using multiple detection methods.
     Identifies data points that deviate significantly from normal patterns.
     """
-    async with cl.Step(name="Starting outlier detection process", type="run") as step: 
+    async with cl.Step(name="Starting outlier detection process", type="tool") as step: 
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return OutlierResult(
+                message="No data available",
+                outliers="No data available. Please extract data first."
+            )
 
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         
@@ -886,13 +960,16 @@ async def detect_outliers(data_description: str):
         
         step.name = "Outlier detection process is done."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
-        return {"outliers": "\n".join(result_parts)}        
+        return OutlierResult(
+            message="Outlier detection completed successfully",
+            outliers="\n".join(result_parts)
+        )        
 
 @tool
-async def detect_events(event_description: str):
+async def detect_events(event_description: str) -> EventResult:
     """
     Detect when specific events first occurred in the flight log data.
     This tool can find the first occurrence of conditions like:
@@ -908,14 +985,17 @@ async def detect_events(event_description: str):
     - "When did GPS yaw become available?"
     - "When was the first instance of RC signal loss?"
     """
-    async with cl.Step(name="Starting event detection process", type="run") as step:
+    async with cl.Step(name="Starting event detection process", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data available."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return EventResult(
+                message="No data available",
+                events="No data available. Please extract data first."
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         await step.stream_token(f"Analyzing event: '{event_description}'\n")
@@ -957,7 +1037,10 @@ async def detect_events(event_description: str):
             await step.stream_token(f"AI parsed event detection config: {detection_config}\n")
         except Exception as e:
             await step.stream_token(f"Error parsing detection config: {str(e)}\n")
-            return f"Error parsing event detection logic: {str(e)}"
+            return EventResult(
+                message="Event detection failed",
+                events=f"Error parsing event detection logic: {str(e)}"
+            )
         
         # Find the target message type in available data
         target_msg_type = detection_config.get("message_type")
@@ -969,7 +1052,10 @@ async def detect_events(event_description: str):
         
         if not matching_msg_types:
             await step.stream_token(f"No matching message type found for '{target_msg_type}' in available data: {list(data.keys())}\n")
-            return f"No data available for message type '{target_msg_type}'. Available types: {list(data.keys())}"
+            return EventResult(
+                message="Event detection failed",
+                events=f"No data available for message type '{target_msg_type}'. Available types: {list(data.keys())}"
+            )
         
         results = []
         
@@ -1122,27 +1208,37 @@ async def detect_events(event_description: str):
             # Update step name to show completion
             step.name = "Event detection process is done."
             await step.update()
-            return {"events": "\n".join(result_parts)}
+            return EventResult(
+                message="Event detection completed successfully",
+                events="\n".join(result_parts),
+                occurrences=[EventOccurrence(**result) for result in results]
+            )
         else:
             await step.stream_token("No events detected matching the specified criteria.\n")
             # Update step name to show completion
             step.name = "Event detection process is done."
             await step.update()
-            return f"No events found matching: '{event_description}'. The condition may not have occurred in the available data, or the detection criteria may need adjustment."
+            return EventResult(
+                message="No events detected",
+                events=f"No events found matching: '{event_description}'. The condition may not have occurred in the available data, or the detection criteria may need adjustment."
+            )
 
 @tool
-async def visualize(query: str):
+async def visualize(query: str) -> VisualizationResult:
     """
     Visualize the data.
     """
-    async with cl.Step(name="Starting visualization process.", type="run") as step:
+    async with cl.Step(name="Starting visualization process.", type="tool") as step:
         data = filter_data()
         if not data:
             step.name = "No data is available for visualization."
             await step.update()
-            await cl.sleep(0.5)
-            await step.remove()            
-            return step.name
+            # await cl.sleep(0.5)
+            # await step.remove()            
+            return VisualizationResult(
+                message="No data available",
+                code_generated=False
+            )
         
         await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
         await step.stream_token("Preparing data for visualization by sampling records...\n")
@@ -1156,15 +1252,15 @@ async def visualize(query: str):
 
         await step.stream_token("Generating visualization code using AI model...\n")
 
-
         template = """
         Find the key that is most relevant for the user query: {user_query}.
-        Here is the available keys: {keys}.
+        Here is the available keys: {keys}, 
+        and here is the chat history: {chat_history}.
 
         Only give the key, nothing else.
         """
 
-        prompt = PromptTemplate(input_variables=["user_query", "keys"], template=template)
+        prompt = PromptTemplate(input_variables=["user_query", "keys", "chat_history"], template=template)
         # Use the global model that's already configured
         chain = prompt | model
         
@@ -1176,7 +1272,7 @@ async def visualize(query: str):
                 user_query = message.content
                 break
 
-        result = chain.invoke({"user_query": user_query, "keys": keys})
+        result = chain.invoke({"user_query": user_query, "keys": keys, "chat_history": chat_history})
         key = result.content.strip()
 
         await step.stream_token(f"Found the key: {key}\n")
@@ -1191,7 +1287,7 @@ async def visualize(query: str):
 
         Here is how the 100 rows sampled from the data looks like: {sampled_data}.
 
-        Write a Plotly function in Python to visualize the data[key] so that I can execute it and get the plot.
+        Write a matplotlib function in Python to visualize the data[key] so that I can execute it and get the plot.
         Make sure that the plot is relevant to the user's query: {query}.
         
         Only give the code, nothing else. Don't include ```python or ``` or anything else. 
@@ -1217,18 +1313,19 @@ async def visualize(query: str):
         code = code.replace("plt.show()", "")  
         
         await step.stream_token("AI model successfully generated visualization code.\n")
-        await step.stream_token("Code has been prepared for execution.\n")
         
         # Execute the visualization code
         cl.user_session.set("code", code)
 
-        await step.stream_token(f"Visualization ready using data from message types: {list(col_map.keys())}\n")
-        await step.stream_token("Visualization process completed successfully.\n")
+        await step.stream_token(f"Visualization ready using data from message type: {key}\n")
 
         # Update step name to show completion
         step.name = "Visualization process is done."
         await step.update()
-        return f"Successfully generated the visualization code using the following message type and fields: {col_map}"
+        return VisualizationResult(
+            message="Successfully generated the visualization code",
+            code_generated=True
+        )
 
 def should_continue(state: MessagesState) -> Literal["tools", "qa"]:
     messages = state["messages"]
@@ -1407,8 +1504,8 @@ async def quality_assurance_agent(state: MessagesState):
         # Update step name to show completion
         step.name = "Response is checked."
         await step.update()
-        await cl.sleep(0.5)
-        await step.remove()
+        # await cl.sleep(0.5)
+        # await step.remove()
         
         # Return the QA-validated/improved answer
         improved_response = AIMessage(content=qa_content)
@@ -1541,7 +1638,7 @@ async def on_message(msg: cl.Message):
         except Exception as e:
             error_message = f"Error: {e}"
             for char in error_message:
-                await step.stream_token(char)
+                await final_answer.stream_token(char)
                 await asyncio.sleep(0.01)  # Small delay for streaming effect
 
 @cl.on_stop

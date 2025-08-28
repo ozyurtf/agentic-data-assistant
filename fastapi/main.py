@@ -14,6 +14,8 @@ import math
 import logging
 from typing import List, Dict, Any, Optional
 import os
+import uuid
+from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -23,15 +25,26 @@ load_dotenv()
 def get_user_id(request: Request):
     return request.headers.get("user-id", request.client.host)
 
-r = redis.Redis(
-    host=os.getenv("REDIS_HOST", "localhost"), 
-    port=int(os.getenv("REDIS_PORT", 6379)), 
-    db=0, 
-    decode_responses=True,
+# Initialize Redis with configuration from models
+redis_config = RedisConfig(
+    host=os.getenv("REDIS_HOST", "localhost"),
+    port=int(os.getenv("REDIS_PORT", 6379)),
+    db=0,
+    decode_responses=True
 )
 
-upload_dir = Path("files")
-upload_dir.mkdir(exist_ok=True)
+r = redis.Redis(**redis_config.dict())
+
+# Initialize app configuration
+app_config = AppConfig(
+    upload_dir=Path("files"),
+    max_file_size_mb=int(os.getenv("MAX_FILE_SIZE_MB", 100)),
+    cache_ttl_seconds=int(os.getenv("CACHE_TTL_SECONDS", 3600)),
+    max_message_types_per_request=int(os.getenv("MAX_MESSAGE_TYPES", 3)),
+    allowed_file_extensions=['.bin', '.log', '.tlog']
+)
+
+app_config.upload_dir.mkdir(exist_ok=True)
 
 app = FastAPI(
     title="Drone Log API", 
@@ -51,7 +64,7 @@ limiter = Limiter(key_func=get_user_id)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-def clear_user_cache(user_id: str):
+def clear_user_cache(user_id: str) -> int:
     """Clear all cached data for a specific user when a new file is uploaded"""
     try:
         # First, let's see what keys exist for this user
@@ -79,30 +92,34 @@ def clear_user_cache(user_id: str):
         logger.error(f"Failed to clear cache for user {user_id}: {e}")
         return 0
 
-def push_file_to_stack(user_id: str, file_data: dict) -> bool:
+def push_file_to_stack(user_id: str, file_metadata: FileMetadata) -> bool:
     """Push file metadata to Redis list"""
     try:
-        r.lpush(f"files:{user_id}", json.dumps(file_data))
+        r.lpush(f"files:{user_id}", file_metadata.json())
         return True
     except redis.RedisError as e:
         logger.error(f"Failed to push file data to Redis: {e}")
         return False
 
-def get_latest_file(user_id: str) -> Optional[dict]:
+def get_latest_file(user_id: str) -> Optional[FileMetadata]:
     """Get most recent uploaded file metadata"""
     try:
         raw = r.lindex(f"files:{user_id}", 0)
-        return json.loads(raw) if raw else None
-    except (redis.RedisError, json.JSONDecodeError) as e:
+        if raw:
+            return FileMetadata.parse_raw(raw)
+        return None
+    except (redis.RedisError, ValueError) as e:
         logger.error(f"Failed to get latest file for user {user_id}: {e}")
         return None
 
-def pop_latest_file(user_id: str) -> Optional[dict]:
+def pop_latest_file(user_id: str) -> Optional[FileMetadata]:
     """Remove most recent uploaded file"""
     try:
         raw = r.lpop(f"files:{user_id}")
-        return json.loads(raw) if raw else None
-    except (redis.RedisError, json.JSONDecodeError) as e:
+        if raw:
+            return FileMetadata.parse_raw(raw)
+        return None
+    except (redis.RedisError, ValueError) as e:
         logger.error(f"Failed to pop latest file for user {user_id}: {e}")
         return None
 
@@ -118,7 +135,10 @@ def safe_cache_get(key: str) -> Optional[dict]:
 def safe_cache_set(key: str, data: Any, ex: int = 3600) -> bool:
     """Safely set data in cache with error handling"""
     try:
-        r.set(key, json.dumps(data), ex=ex)
+        if isinstance(data, BaseModel):
+            r.set(key, data.json(), ex=ex)
+        else:
+            r.set(key, json.dumps(data), ex=ex)
         return True
     except (redis.RedisError, TypeError, ValueError) as e:
         logger.error(f"Failed to set cache key {key}: {e}")
@@ -170,34 +190,28 @@ def clean_and_remove_empty_columns(data_list: List[Dict[str, Any]]) -> List[Dict
     
     return cleaned_data    
 
-def validate_col_map(col_map: Dict[str, List[str]]) -> bool:
-    """Validate that col_map has the expected structure"""
-    if not isinstance(col_map, dict):
-        return False
-    
-    for msg_type, fields in col_map.items():
-        if not isinstance(msg_type, str) or not isinstance(fields, list):
-            return False
-        if not all(isinstance(field, str) for field in fields):
-            return False
-    return True
-
-@app.get("/api/current-user", description="Get the current user ID from the chatbot session")
+@app.get("/api/current-user", response_model=UserResponse, description="Get the current user ID from the chatbot session")
 async def get_current_user(request: Request):
     """Get the current user ID from the chatbot session"""
     try:
         # Try to get user ID from headers first (for direct API calls)
         user_id = request.headers.get("user-id")
         if user_id:
-            return {"current_user": user_id}
+            return UserResponse(current_user=user_id)
         
         # If no user-id header, try to get from session or return default
         # For now, return a default since we can't access Chainlit session directly
-        return {"current_user": "anonymous", "note": "No user-id header provided"}
+        return UserResponse(
+            current_user="anonymous", 
+            note="No user-id header provided"
+        )
         
     except Exception as e:
         logger.error(f"Failed to get current user: {str(e)}")
-        return {"current_user": "anonymous", "error": "Failed to get current user"}
+        return UserResponse(
+            current_user="anonymous", 
+            error="Failed to get current user"
+        )
 
 @app.post("/api/files/{file_id}", response_model=FileReceiveResponse, status_code=201, description="Upload a drone flight log file")
 @limiter.limit("10/hour")
@@ -205,14 +219,22 @@ async def receive_file(request: Request, file_id: str, file: UploadFile = File(.
     logger.info(f"Receiving file upload: {file_id} for user: {user_id}")
     logger.info(f"File name: {file.filename}")
 
-    if not file.filename.endswith(('.bin', '.log', '.tlog')):
-        raise HTTPException(status_code=400, detail="Only .bin, .log, and .tlog files are supported")
+    # Validate file extension
+    if not any(file.filename.lower().endswith(ext) for ext in app_config.allowed_file_extensions):
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Only {', '.join(app_config.allowed_file_extensions)} files are supported"
+        )
     
-    if file.size and file.size > 100 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="File too large. Max size is 100MB")
+    # Validate file size
+    if file.size and file.size > app_config.max_file_size_mb * 1024 * 1024:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"File too large. Max size is {app_config.max_file_size_mb}MB"
+        )
 
     file_name = file.filename
-    file_path = upload_dir / f"{file_id}_{file_name}"
+    file_path = app_config.upload_dir / f"{file_id}_{file_name}"
 
     try:
         # Stream instead of loading whole file into memory
@@ -220,17 +242,23 @@ async def receive_file(request: Request, file_id: str, file: UploadFile = File(.
             while chunk := await file.read(1024 * 1024):  # 1MB chunks
                 buffer.write(chunk)
 
-        file_data = {
-            "file_id": file_id,
-            "file_path": str(file_path),
-            "filename": file.filename
-        }
+        # Create file metadata using the Pydantic model
+        file_metadata = FileMetadata(
+            file_id=file_id,
+            file_path=str(file_path),
+            filename=file.filename,
+            file_size=file_path.stat().st_size if file_path.exists() else None
+        )
 
         # Clear cache and store file data (continue even if Redis fails)
         clear_user_cache(user_id)
-        push_file_to_stack(user_id, file_data)
+        push_file_to_stack(user_id, file_metadata)
 
-        return FileReceiveResponse(**file_data)
+        return FileReceiveResponse(
+            file_id=file_metadata.file_id,
+            file_path=file_metadata.file_path,
+            filename=file_metadata.filename
+        )
 
     except Exception as e:
         if file_path.exists():
@@ -238,23 +266,23 @@ async def receive_file(request: Request, file_id: str, file: UploadFile = File(.
         logger.error(f"File upload failed: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Failed to upload file: {str(e)}")
 
-@app.get("/api/files/{file_id}/schema", description="Get message types and fields from log file")
+@app.get("/api/files/{file_id}/schema", response_model=SchemaResponse, description="Get message types and fields from log file")
 @limiter.limit("20/hour")
 async def get_file_schema(request: Request, file_id: str, user_id: str = Header(alias="user-id")):
-    file_data = get_latest_file(user_id)
-    if not file_data:
+    file_metadata = get_latest_file(user_id)
+    if not file_metadata:
         raise HTTPException(status_code=404, detail="No file found for this user")
     
     # Check cache first (gracefully handle cache failures)
-    cache_key = f"schema:{user_id}:{file_data['file_id']}"
+    cache_key = f"schema:{user_id}:{file_metadata.file_id}"
     cached_schema = safe_cache_get(cache_key)
     if cached_schema:
         logger.info(f"Schema served from cache for {cache_key}")
-        return cached_schema
+        return SchemaResponse(**cached_schema)
     
     try:
         # Parse file for schema
-        mlog = mavutil.mavlink_connection(file_data["file_path"])
+        mlog = mavutil.mavlink_connection(file_metadata.file_path)
         msg_info = defaultdict(set)
         
         while True:
@@ -265,12 +293,17 @@ async def get_file_schema(request: Request, file_id: str, user_id: str = Header(
             msg_info[msg_type].update(msg.to_dict().keys())
         
         schema = {k: sorted(v) for k, v in msg_info.items()}
-        result = {"schema": schema, "file_id": file_data["file_id"]}
+        
+        schema_response = SchemaResponse(
+            schema=schema,
+            file_id=file_metadata.file_id,
+            total_message_types=len(schema)
+        )
         
         # Try to cache the schema (continue even if caching fails)
-        safe_cache_set(cache_key, result, ex=7200)
+        safe_cache_set(cache_key, schema_response, ex=7200)
         
-        return result
+        return schema_response
         
     except Exception as e:
         logger.error(f"Schema generation failed: {str(e)}")
@@ -278,64 +311,77 @@ async def get_file_schema(request: Request, file_id: str, user_id: str = Header(
 
 @app.post("/api/process", description="Process a drone flight log file")
 @limiter.limit("30/hour")
-async def process_file(request: Request, col_map: Dict[str, List[str]] = Body(...), user_id: str = Header(alias="user-id")):
-    # Validate input
-    if not validate_col_map(col_map):
-        return JSONResponse(
-            status_code=400, 
-            content={"success": False, "error": "Invalid col_map format", "data": None}
+async def process_file(
+    request: Request, 
+    col_map: Dict[str, List[str]] = Body(...), 
+    user_id: str = Header(alias="user-id")
+):
+    """Process drone flight log file with column mapping validation"""
+    
+    # Validate the col_map using the ColMapRequest model
+    try:
+        col_map_request = ColMapRequest(col_map=col_map)
+        validated_col_map = col_map_request.col_map
+    except ValueError as e:
+        return ProcessErrorResponse(
+            error=f"Invalid col_map: {str(e)}"
         )
-
-    file_data = get_latest_file(user_id)
-    if not file_data:
-        return JSONResponse(
-            status_code=404, 
-            content={"success": False, "error": "No file found for this user", "data": None}
+    
+    file_metadata = get_latest_file(user_id)
+    if not file_metadata:
+        return ProcessErrorResponse(
+            error="No file found for this user"
         )
 
     try:
         data = {}
         rem_msg_types = []
+        cache_hits = 0
+        cache_misses = 0
         
         # Check cache for each message type
-        for msg_type in col_map.keys():
-            cache_key = f"cache:{user_id}:{file_data['file_id']}:{msg_type}:ALL_FIELDS"
+        for msg_type in validated_col_map.keys():
+            cache_key = f"cache:{user_id}:{file_metadata.file_id}:{msg_type}:ALL_FIELDS"
             cached = safe_cache_get(cache_key)
             
             if cached:
                 data[msg_type] = cached
-                logger.info(f"--------------------------------")
+                cache_hits += 1
                 logger.info(f"Full data received from cache for {msg_type}.")
-                logger.info(f"--------------------------------")
             else:
                 rem_msg_types.append(msg_type)
+                cache_misses += 1
 
         # Process uncached message types
+        total_messages_read = 0
+        processing_start = datetime.utcnow()
+        
         if rem_msg_types:
             try:
-                mlog = mavutil.mavlink_connection(file_data["file_path"])
+                mlog = mavutil.mavlink_connection(file_metadata.file_path)
                 
                 # Initialize with empty lists
                 for msg in rem_msg_types:
                     data[msg] = []
                 
                 # Read all messages
-                msg_count = 0
                 while True:
                     msg = mlog.recv_match(type=rem_msg_types)
                     if msg is None:
                         break
                     
-                    msg_count += 1
+                    total_messages_read += 1
                     msg_type = msg.get_type()
-                    if msg_type in col_map:
+                    if msg_type in validated_col_map:
                         data[msg_type].append(msg.to_dict())
                 
-                logger.info(f"Processed {msg_count} total messages")
+                logger.info(f"Processed {total_messages_read} total messages")
                 
             except Exception as e:
                 logger.error(f"MAVLink processing failed: {str(e)}")
-                raise HTTPException(status_code=500, detail=f"Failed to process MAVLink data: {str(e)}")
+                return ProcessErrorResponse(
+                    error=f"Failed to process MAVLink data: {str(e)}"
+                )
             
             # Clean and cache each message type
             for msg_type in rem_msg_types:
@@ -350,43 +396,59 @@ async def process_file(request: Request, col_map: Dict[str, List[str]] = Body(..
                     logger.info(f"  {msg_type}: {original_count} rows, {original_cols} → {final_cols} columns")
                 
                 # Try to cache the cleaned data (continue if caching fails)
-                cache_key = f"cache:{user_id}:{file_data['file_id']}:{msg_type}:ALL_FIELDS"
-                safe_cache_set(cache_key, data[msg_type], ex=3600)
+                cache_key = f"cache:{user_id}:{file_metadata.file_id}:{msg_type}:ALL_FIELDS"
+                safe_cache_set(cache_key, data[msg_type], ex=app_config.cache_ttl_seconds)
 
-        return JSONResponse(status_code=200, content={
-            "success": True,
-            "message": "File processed successfully",
-            "data": data,
-            "metadata": {"file_id": file_data["file_id"], "filename": file_data["filename"]}
-        })
+        processing_time = (datetime.utcnow() - processing_start).total_seconds()
+        
+        # Create processing statistics
+        processing_stats = ProcessingStats(
+            total_messages_read=total_messages_read,
+            message_types_found=len([msg_type for msg_type in data.keys() if data[msg_type]]),
+            processing_time_seconds=processing_time,
+            cache_hits=cache_hits,
+            cache_misses=cache_misses
+        )
 
-    except HTTPException:
-        raise  # Re-raise HTTP exceptions
+        return ProcessSuccessResponse(
+            message="File processed successfully",
+            data=data,
+            metadata={
+                "file_id": file_metadata.file_id, 
+                "filename": file_metadata.filename,
+                "processing_stats": processing_stats.dict()
+            }
+        )
+
+    except ValueError as e:
+        # This will catch Pydantic validation errors
+        logger.error(f"Validation error: {str(e)}")
+        return ProcessErrorResponse(
+            error=f"Validation error: {str(e)}"
+        )
     except Exception as e:
         logger.error(f"Unexpected error in process_file: {str(e)}", exc_info=True)
-        return JSONResponse(status_code=500, content={
-            "success": False,
-            "error": f"Failed to process file: {str(e)}",
-            "data": None,
-            "metadata": {"file_id": file_data.get("file_id", "unknown")}
-        })
+        return ProcessErrorResponse(
+            error=f"Failed to process file: {str(e)}",
+            metadata={"file_id": file_metadata.file_id if file_metadata else "unknown"}
+        )
 
 @app.get("/api/files", description="Get the most recent uploaded file for the user")
 @limiter.limit("100/minute")
 async def get_file(request: Request, user_id: str = Header(alias="user-id")):
-    file_data = get_latest_file(user_id)
-    if not file_data:
+    file_metadata = get_latest_file(user_id)
+    if not file_metadata:
         raise HTTPException(status_code=404, detail="No files available for this user")
-    return file_data
+    return file_metadata
 
-@app.delete("/api/files", description="Delete the most recent uploaded file for the user")
+@app.delete("/api/files", response_model=DeleteResponse, description="Delete the most recent uploaded file for the user")
 @limiter.limit("5/minute")
-async def delete_file(request: Request, user_id: str = Header(...)):
-    file_data = pop_latest_file(user_id)
-    if not file_data:
+async def delete_file(request: Request, user_id: str = Header(alias="user-id")):
+    file_metadata = pop_latest_file(user_id)
+    if not file_metadata:
         raise HTTPException(status_code=404, detail="No files available for this user")
 
-    file_path = Path(file_data['file_path'])
+    file_path = Path(file_metadata.file_path)
     if file_path.exists():
         try:
             file_path.unlink()
@@ -395,9 +457,12 @@ async def delete_file(request: Request, user_id: str = Header(...)):
             logger.error(f"Failed to delete file {file_path}: {e}")
             # Continue anyway - file metadata is removed from Redis
 
-    return {"message": f"Top file '{file_data['file_id']}' deleted successfully"}
+    return DeleteResponse(
+        message=f"File '{file_metadata.file_id}' deleted successfully",
+        deleted_file_id=file_metadata.file_id
+    )
 
-@app.get("/api/debug/redis-keys/{user_id}", description="Debug endpoint to see Redis keys for a user")
+@app.get("/api/debug/redis-keys/{user_id}", response_model=RedisDebugResponse, description="Debug endpoint to see Redis keys for a user")
 async def debug_redis_keys(user_id: str):
     """Debug endpoint to inspect Redis keys for a user"""
     try:
@@ -413,18 +478,26 @@ async def debug_redis_keys(user_id: str):
         for pattern in patterns:
             pattern_results[pattern] = r.keys(pattern)
             
-        return {
-            "user_id": user_id,
-            "total_keys": len(all_keys),
-            "user_keys": user_keys,
-            "pattern_results": pattern_results,
-            "sample_keys": all_keys[:10]  # Show first 10 keys as sample
-        }
+        return RedisDebugResponse(
+            user_id=user_id,
+            total_keys=len(all_keys),
+            user_keys=user_keys,
+            pattern_results=pattern_results,
+            sample_keys=all_keys[:10]  # Show first 10 keys as sample
+        )
     except redis.RedisError as e:
-        return {"error": f"Redis error: {e}"}
+        return RedisDebugResponse(
+            user_id=user_id,
+            total_keys=0,
+            user_keys=[],
+            pattern_results={},
+            sample_keys=[],
+            error=f"Redis error: {e}"
+        )
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health_check():
+    """Health check endpoint"""
     # Check Redis connectivity
     redis_status = "healthy"
     try:
@@ -432,8 +505,8 @@ async def health_check():
     except redis.RedisError:
         redis_status = "unhealthy"
     
-    return {
-        "status": "healthy",
-        "redis": redis_status,
-        "upload_dir": str(upload_dir.absolute())
-    }
+    return HealthResponse(
+        status="healthy" if redis_status == "healthy" else "degraded",
+        redis=redis_status,
+        upload_dir=str(app_config.upload_dir.absolute())
+    )
