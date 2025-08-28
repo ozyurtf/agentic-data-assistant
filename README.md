@@ -56,17 +56,7 @@ OPENAI_API_KEY=<your_openai_api_key>           # Get from https://platform.opena
 FIRECRAWL_API_KEY=<your_firecrawl_api_key>     # Get from https://www.firecrawl.dev
 
 # Chainlit
-CHAINLIT_AUTH_SECRET=<your_chainlit_secret>    # See https://docs.chainlit.io/authentication/overview
-
-# App settings
-USER_AGENT=drone-chatbot
-API_BASE_URL=http://127.0.0.1:8001
-VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
-VUE_APP_CHATBOT_URL=http://localhost:8000
-
-# Redis 
-REDIS_HOST=localhost
-REDIS_PORT=6379
+CHAINLIT_AUTH_SECRET=<your_chainlit_secret>    # Get from https://docs.chainlit.io/authentication/overview
 
 # Set the maximum file size allowed for uploading
 MAX_FILE_SIZE_MB=100
@@ -76,6 +66,16 @@ CACHE_TTL_SECONDS=3600
 
 # Set the number of message types that can be processed in a single request.
 MAX_MESSAGE_TYPES=3
+
+# Redis 
+REDIS_HOST=localhost
+REDIS_PORT=6379
+
+# App settings
+USER_AGENT=drone-chatbot
+API_BASE_URL=http://127.0.0.1:8001
+VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
+VUE_APP_CHATBOT_URL=http://localhost:8000
 ```
 
 **Warning**: It's recommended to use Docker for the most stable experience. Running locally may sometimes result in issues with file uploads that can cause page refreshes or processing failures. The Docker version provides better isolation and consistent behavior. 
