@@ -24,6 +24,13 @@
 
 # Running  
 
+
+## Create a Folder Inside FastAPI
+
+```bash
+mkdir -p fastapi/files
+```
+
 ## Configure Environment Variables
 
 Create a `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
@@ -54,6 +61,15 @@ VUE_APP_CHATBOT_URL=http://localhost:8000
 # Redis 
 REDIS_HOST=localhost
 REDIS_PORT=6379
+
+# Set the maximum file size allowed for uploading
+MAX_FILE_SIZE_MB=100
+
+# Set how long cached data should stay in Redis (in seconds)
+CACHE_TTL_SECONDS=3600
+
+# Set the number of message types that can be processed in a single request.
+MAX_MESSAGE_TYPES=3
 ```
 
 **Warning**: It's recommended to use Docker for the most stable experience. Running locally may sometimes result in issues with file uploads that can cause page refreshes or processing failures. The Docker version provides better isolation and consistent behavior. 
@@ -84,7 +100,15 @@ Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin
 
 ## Run without Docker
 
-### 1. Create and Activate a Virtual Environment
+### 1. Initialize Git Submodules
+
+```bash
+git submodule init
+
+git submodule update
+```
+
+### 2. Create and Activate a Virtual Environment
 
 **macOS/Linux:**
 ```bash
@@ -98,7 +122,7 @@ python -m venv .venv
 .venv\Scripts\activate.bat
 ```
 
-### 2. Install Dependencies 
+### 3. Install Dependencies 
 
 **macOS/Linux:**
 ```bash
@@ -114,7 +138,7 @@ choco install redis-64
 pip install -r requirements.txt
 ```
 
-### 3. Start Redis Service
+### 4. Start Redis Service
 
 **macOS:**
 ```bash
@@ -136,7 +160,7 @@ redis-server --service-start
 redis-cli ping
 ```
 
-### 4. Run UI, Chatbot and API
+### 5. Run UI, Chatbot and API
 
 Run the commands below in separate terminals. 
 
