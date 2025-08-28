@@ -80,7 +80,7 @@ docker build -t fastapi ./fastapi
 docker compose up
 ```
 
-Visit `http://localhost:8080/` to interact with the UI and chatbot.
+Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in.
 
 ## Run without Docker
 
@@ -160,5 +160,5 @@ cd fastapi
 python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
 ```
 
-Visit `http://localhost:8080/` to interact with the UI and chatbot.
+Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in.
 
