@@ -56,21 +56,6 @@ def filter_data() -> dict:
         return {}
     return filtered_data
 
-def get_user_session() -> UserSession:
-    """
-    Get the current user session data as a UserSession model.
-    """
-    return UserSession(
-        msg_context=cl.user_session.get("msg_context", ""),
-        file_id=cl.user_session.get("file_id", ""),
-        web_content=cl.user_session.get("web_content", ""),
-        data=cl.user_session.get("data", {}),
-        col_map=cl.user_session.get("col_map", {}),
-        code=cl.user_session.get("code", ""),
-        message_history=cl.user_session.get("message_history", [])
-    )
-
-
 
 @tool
 async def load_web_content(url: str) -> WebContentResult:
