@@ -29,7 +29,6 @@ import hashlib
 import json
 import time
 from models import *
-from fastapi.models import ColMapRequest 
 matplotlib.use('Agg')
 
 load_dotenv()
@@ -1217,7 +1216,16 @@ async def visualize(query: str) -> VisualizationResult:
     Visualize the data.
     """
     async with cl.Step(name="Starting visualization process.", type="tool") as step:
-        data = filter_data()
+        try:
+            data = filter_data()
+        except Exception as e:
+            await step.stream_token(f"Error filtering data: {str(e)}\n")
+            step.name = "Visualization process is failed."
+            await step.update()
+            return VisualizationResult(
+                message="Error filtering data",
+                code_generated=False
+            )
         if not data:
             step.name = "No data is available for visualization."
             await step.update()
@@ -1241,27 +1249,33 @@ async def visualize(query: str) -> VisualizationResult:
         await step.stream_token("Generating visualization code using AI model...\n")
 
         template = """
-        Find the key that is most relevant for the user query: {user_query}.
-        Here is the available keys: {keys}, 
-        and here is the chat history: {chat_history}.
+        Pick a key from the available keys: {keys} that is the most relevant
+        for the user last query {query} and chat history: {chat_history}.
+        Only give the key, nothing else. 
 
-        Only give the key, nothing else.
+        If you think there is no key that is relevant to the user query
+        or that is relevant to the conversations in the recent chat history, return "NO_KEY.
         """
 
-        prompt = PromptTemplate(input_variables=["user_query", "keys", "chat_history"], template=template)
+        prompt = PromptTemplate(input_variables=["query", "keys", "chat_history"], template=template)
         # Use the global model that's already configured
         chain = prompt | model
         
         # Get the last Human Message from chat history
         chat_history = cl.user_session.get("message_history")
-        user_query = ""
-        for message in reversed(chat_history):
-            if isinstance(message, HumanMessage):
-                user_query = message.content
-                break
 
-        result = chain.invoke({"user_query": user_query, "keys": keys, "chat_history": chat_history})
+        result = chain.invoke({"query": query, "keys": keys, "chat_history": chat_history})
         key = result.content.strip()
+
+        if key == "NO_KEY":
+            await step.stream_token("No key is relevant to the user query or the chat history.\n")
+            step.name = "Visualization process is failed."
+            await step.update()
+            cl.user_session.set("code", "")
+            return VisualizationResult(
+                message="No key is relevant to the user query or the chat history.",
+                code_generated=False
+            )
 
         await step.stream_token(f"Found the key: {key}\n")
             
@@ -1629,6 +1643,8 @@ async def on_message(msg: cl.Message):
             for char in error_message:
                 await final_answer.stream_token(char)
                 await asyncio.sleep(0.01)  # Small delay for streaming effect
+    else:
+        await final_answer.stream_token("No visualization code was generated.\n")
 
 @cl.on_stop
 def on_stop():

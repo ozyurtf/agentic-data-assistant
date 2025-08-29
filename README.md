@@ -24,11 +24,11 @@
 
 # Running  
 
-## Create a Folder Inside `fastpi`
+Create a Folder Inside `fastapi`
 
 ```bash
 mkdir -p fastapi/files
-```
+````
 
 ## Configure Environment Variables
 
@@ -66,141 +66,28 @@ REDIS_PORT=6380
 
 # App settings
 USER_AGENT=drone-chatbot
-API_BASE_URL=http://127.0.0.1:8001
-VUE_APP_API_BASE_URL=http://127.0.0.1:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
+API_BASE_URL=http://localhost:8001
+VUE_APP_API_BASE_URL=http://localhost:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
 VUE_APP_CHATBOT_URL=http://localhost:8000
 ```
  
-**Warning**: It's recommended to use Docker for the most stable experience. Running locally may sometimes result in issues with file uploads that can cause page refreshes or processing failures. The Docker version provides better isolation and consistent behavior. 
-
-
-## Run with Docker 
+## Run with Docker
 
 ```bash
 # Build UI (Dockerfile is in root folder)
 docker build -t ui .
-```
 
-```bash
 # Build chatbot (Dockerfile is in chatbot folder)
 docker build -t chatbot ./chatbot
-``` 
 
-```bash 
 # Build fastapi (Dockerfile is in fastapi folder)
 docker build -t fastapi ./fastapi
 ```
 
-Once the Docker images are built, run the following command to start the services.
+Once the Docker images are built, run the following command to start the services:
 
 ```bash
 docker compose up
 ```
 
 Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in.
-
-## Run without Docker
-
-### 0. Prerequisites
-
-- **Python**: 3.11 or higher
-- **Git**: For submodule initialization
-- **Chocolatey** (Windows): Package manager for installing dependencies
-
-### 1. Initialize Git Submodules
-
-```bash
-git submodule init
-
-git submodule update
-```
-
-### 2. Create and Activate a Virtual Environment
-
-**macOS/Linux:**
-```bash
-python -m venv .venv
-
-source .venv/bin/activate
-```
-
-**Windows (Command Prompt):**
-```bash
-python -m venv .venv
-
-.venv\Scripts\activate.bat
-```
-
-### 3. Install Dependencies 
-
-```bash
-pip install -r fastapi/requirements.txt
-
-pip install -r chatbot/requirements.txt
-```
-
-**macOS/Linux:**
-```bash
-brew install redis
-
-brew install node
-```
-
-**Windows:**
-```bash
-choco install redis-64
-
-choco install nodejs-lts
-```
-
-### 4. Start Redis Service
-
-**macOS:**
-```bash
-brew services start redis
-```
-
-**Windows:**
-```bash
-# Start Redis service (if installed via Chocolatey)
-redis-server
-
-# Or run as Windows service
-redis-server --service-install
-
-redis-server --service-start
-```
-
-**Verify Redis is running:**
-```bash
-redis-cli ping
-```
-
-### 5. Run UI, Chatbot and API
-
-Run the commands below in 3 separate terminals. 
-
-```bash
-npm install
-
-npm install --save-dev dotenv
-
-npx update-browserslist-db@latest
-
-npm run dev
-```
-
-```bash
-cd chatbot
-
-chainlit run app.py
-```
-
-```bash
-cd fastapi
-
-python -m uvicorn main:app --host 0.0.0.0 --port 8001 --reload
-```
-
-Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in.
-

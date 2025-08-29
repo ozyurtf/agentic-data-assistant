@@ -105,6 +105,45 @@ class UserSession(BaseModel):
     code: str = Field(default="", description="Generated visualization code")
     message_history: List[Any] = Field(default_factory=list, description="Chat message history")
 
+
+class ColMapRequest(BaseModel):
+    """Request model for processing drone flight logs with column mapping"""
+    col_map: Dict[str, List[str]] = Field(
+        ..., 
+        description="Mapping of MAVLink message types to their field lists",
+        example={"GPS": ["Lat", "Lng", "Alt"], "ATT": ["Roll", "Pitch", "Yaw"]}
+    )
+    
+    @validator('col_map')
+    def validate_col_map(cls, v):
+        if not isinstance(v, dict):
+            raise ValueError('col_map must be a dictionary')
+        
+        if not v:
+            raise ValueError('col_map cannot be empty')
+        
+        if len(v) > int(os.getenv("MAX_MESSAGE_TYPES", 3)):
+            raise ValueError(f'Maximum {os.getenv("MAX_MESSAGE_TYPES", 3)} message types allowed per request')
+        
+        for msg_type, fields in v.items():
+            if not isinstance(msg_type, str) or not msg_type.strip():
+                raise ValueError(f'Message type must be a non-empty string, got: {type(msg_type).__name__}')
+            
+            if not isinstance(fields, list):
+                raise ValueError(f'Fields for {msg_type} must be a list, got: {type(fields).__name__}')
+            
+            if not fields:
+                raise ValueError(f'Fields list for {msg_type} cannot be empty')
+            
+            if len(fields) > 50:  # Reasonable limit
+                raise ValueError(f'Maximum 50 fields per message type, got {len(fields)} for {msg_type}')
+            
+            for field in fields:
+                if not isinstance(field, str) or not field.strip():
+                    raise ValueError(f'All fields must be non-empty strings, got: {field}')
+        
+        return v
+
 # API interaction models
 class FileInfo(BaseModel):
     """File information from API"""
