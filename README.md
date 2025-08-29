@@ -110,9 +110,8 @@ docker-compose up -d
 docker-compose down
 ```
 
-### Authentication
+Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in to the application.
 
-Enter `admin` in the email field and `password` in the password field to log in to the application.
 
 ## Access the Application
 
