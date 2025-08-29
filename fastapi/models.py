@@ -2,6 +2,7 @@ from pydantic import BaseModel, Field, validator
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 from pathlib import Path
+import os
 
 # Request Models
 class ColMapRequest(BaseModel):
@@ -20,8 +21,8 @@ class ColMapRequest(BaseModel):
         if not v:
             raise ValueError('col_map cannot be empty')
         
-        if len(v) > 3:
-            raise ValueError('Maximum 3 message types allowed per request')
+        if len(v) > int(os.getenv("MAX_MESSAGE_TYPES", 3)):
+            raise ValueError(f'Maximum {os.getenv("MAX_MESSAGE_TYPES", 3)} message types allowed per request')
         
         for msg_type, fields in v.items():
             if not isinstance(msg_type, str) or not msg_type.strip():

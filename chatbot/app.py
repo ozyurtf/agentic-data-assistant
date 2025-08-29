@@ -29,6 +29,7 @@ import hashlib
 import json
 import time
 from models import *
+from fastapi.models import ColMapRequest 
 matplotlib.use('Agg')
 
 load_dotenv()
@@ -219,9 +220,9 @@ async def extract_data(query: str) -> DataExtractionResult:
             if result.content.strip() != "":
                 col_map = ast.literal_eval(result.content.strip())
                 
-                # Validate the col_map using ProcessRequest model directly
+                # Validate the col_map using ColMapRequest model directly
                 try:
-                    ProcessRequest(col_map=col_map)
+                    ColMapRequest(col_map=col_map)
                     cl.user_session.set("col_map", col_map)
                 except Exception as e:
                     await step.stream_token(f"Invalid column mapping format: {str(e)}. Please try again.\n")
@@ -241,15 +242,17 @@ async def extract_data(query: str) -> DataExtractionResult:
             # Step 4: Extract data using the API endpoint
             await step.stream_token("Extracting data from log file using API...\n")
             
+            # In the extract_data function, replace this:
             user_id = get_user_id()
             headers = {"user-id": user_id}
-            
-            # Validate col_map using ProcessRequest model
-            process_request = ProcessRequest(col_map=col_map)
+
+            # Validate col_map using ColMapRequest model and send the request
+            process_request = ColMapRequest(col_map=col_map)
             response = requests.post(f"{base_url}/api/process", json=process_request.dict(), headers=headers)
                     
             if response.status_code != 200:
                 await step.stream_token(f"API request failed with status {response.status_code}\n")
+                await step.stream_token(f"Here is the extracted col_map: {col_map}\n")
                 return DataExtractionResult(data={"error": f"API request failed with status {response.status_code}: {response.text}"})
                 
             response_data = response.json()
@@ -402,7 +405,7 @@ async def maximum(data_description: str) -> MaximumResult:
     async with cl.Step(name="Starting maximum value analysis", type="tool") as step:
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for maximum value analysis."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -461,7 +464,7 @@ async def minimum(data_description: str) -> MinimumResult:
     async with cl.Step(name="Starting minimum value analysis", type="tool") as step:
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for minimum value analysis."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -518,7 +521,7 @@ async def detect_oscillations(data_description: str) -> OscillationResult:
     async with cl.Step(name="Starting oscillation detection process", type="tool") as step:
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for oscillation detection."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -683,7 +686,7 @@ async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
     async with cl.Step(name="Starting change detection process", type="tool") as step:
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for sudden changes detection."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -778,7 +781,7 @@ async def detect_outliers(data_description: str) -> OutlierResult:
     async with cl.Step(name="Starting outlier detection process", type="tool") as step: 
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for outlier detection."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -973,7 +976,7 @@ async def detect_events(event_description: str) -> EventResult:
     async with cl.Step(name="Starting event detection process", type="tool") as step:
         data = filter_data()
         if not data:
-            step.name = "No data available."
+            step.name = "No data available for event detection."
             await step.update()
             # await cl.sleep(0.5)
             # await step.remove()            
@@ -1451,6 +1454,7 @@ async def quality_assurance_agent(state: MessagesState):
         Return ONLY ONE VERSION of the answer - either the original if it's good, or an improved version if needed.
         NEVER include both the original and improved version in your response.
         DO NOT include the original answer in the improved answer if you are improving it.
+        DO NOT include any Python code for visualization in the answer. 
 
         COMMON ISSUES TO FIX:
         - Add missing context explanations

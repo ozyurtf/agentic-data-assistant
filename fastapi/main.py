@@ -28,7 +28,7 @@ def get_user_id(request: Request):
 # Initialize Redis with configuration from models
 redis_config = RedisConfig(
     host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
+    port=int(os.getenv("REDIS_PORT", 6380)),
     db=0,
     decode_responses=True
 )
@@ -313,19 +313,13 @@ async def get_file_schema(request: Request, file_id: str, user_id: str = Header(
 @limiter.limit("30/hour")
 async def process_file(
     request: Request, 
-    col_map: Dict[str, List[str]] = Body(...), 
+    process_request: ColMapRequest,
     user_id: str = Header(alias="user-id")
 ):
     """Process drone flight log file with column mapping validation"""
     
-    # Validate the col_map using the ColMapRequest model
-    try:
-        col_map_request = ColMapRequest(col_map=col_map)
-        validated_col_map = col_map_request.col_map
-    except ValueError as e:
-        return ProcessErrorResponse(
-            error=f"Invalid col_map: {str(e)}"
-        )
+    # Extract validated col_map from the request object
+    validated_col_map = process_request.col_map  # Changed: Extract from request object
     
     file_metadata = get_latest_file(user_id)
     if not file_metadata:

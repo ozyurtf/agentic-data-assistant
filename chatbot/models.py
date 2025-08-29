@@ -1,6 +1,7 @@
 from pydantic import BaseModel, Field, validator
 from typing import Dict, List, Any, Optional, Union
 from datetime import datetime
+import os
 
 class WebContentResult(BaseModel):
     """Result from web content loading"""
@@ -113,28 +114,6 @@ class FileInfo(BaseModel):
 class SchemaData(BaseModel):
     """Schema data from API"""
     schema: Dict[str, List[str]]
-
-class ProcessRequest(BaseModel):
-    """Request to process API endpoint"""
-    col_map: Dict[str, List[str]] = Field(..., description="Mapping of message types to fields")
-    
-    @validator('col_map')
-    def validate_col_map_structure(cls, v):
-        if not isinstance(v, dict):
-            raise ValueError('col_map must be a dictionary')
-        
-        if len(v) > 3:
-            raise ValueError('Maximum 3 message types allowed per request')
-            
-        for msg_type, fields in v.items():
-            if not isinstance(msg_type, str) or not msg_type.strip():
-                raise ValueError('Message type must be a non-empty string')
-            if not isinstance(fields, list) or not fields:
-                raise ValueError('Fields must be a non-empty list')
-            if not all(isinstance(field, str) and field.strip() for field in fields):
-                raise ValueError('All fields must be non-empty strings')
-        
-        return v
 
 class ProcessResponse(BaseModel):
     """Response from process API endpoint"""
