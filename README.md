@@ -105,6 +105,7 @@ Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin
 
 - **Python**: 3.11 or higher
 - **Git**: For submodule initialization
+- **Chocolatey** (Windows): Package manager for installing dependencies
 
 ### 1. Initialize Git Submodules
 
@@ -132,13 +133,15 @@ python -m venv .venv
 
 ### 3. Install Dependencies 
 
+```bash
+pip install -r requirements.txt
+```
+
 **macOS/Linux:**
 ```bash
 brew install redis
 
 brew install node
-
-pip install -r requirements.txt
 ```
 
 **Windows:**
@@ -146,8 +149,6 @@ pip install -r requirements.txt
 choco install redis-64
 
 choco install nodejs-lts
-
-pip install -r requirements.txt
 ```
 
 ### 4. Start Redis Service
