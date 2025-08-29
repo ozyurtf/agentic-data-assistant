@@ -57,18 +57,24 @@ MAX_FILE_SIZE_MB=100
 # Set how long cached data should stay in Redis (in seconds)
 CACHE_TTL_SECONDS=3600
 
-# Set the number of message types that can be processed in a single request.
+# Set the number of data types that can be extracted from the file in a single request.
 MAX_MESSAGE_TYPES=3
-
-# Redis 
-REDIS_HOST=localhost
-REDIS_PORT=6380
 
 # App settings
 USER_AGENT=drone-chatbot
-API_BASE_URL=http://localhost:8001
-VUE_APP_API_BASE_URL=http://localhost:8001     # API_BASE_URL and VUE_APP_API_BASE_URL should be the same
-VUE_APP_CHATBOT_URL=http://localhost:8000
+
+# Ports and hosts
+API_HOST=localhost
+API_PORT=8001
+
+VUE_API_HOST=localhost
+VUE_API_PORT=8001
+
+CHATBOT_HOST=localhost
+CHATBOT_PORT=8000
+
+REDIS_HOST=localhost
+REDIS_PORT=6380
 ```
  
 ## Run with Docker
@@ -81,7 +87,7 @@ docker build -t ui .
 docker build -t chatbot ./chatbot
 
 # Build fastapi (Dockerfile is in fastapi folder)
-docker build -t fastapi ./fastapi
+docker build -t api ./api
 ```
 
 Once the Docker images are built, run the following command to start the services:

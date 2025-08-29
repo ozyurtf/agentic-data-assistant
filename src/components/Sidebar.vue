@@ -42,7 +42,7 @@
                 </div>
                 <div v-show="selected === 'chat'" class="chat-container">
                     <iframe
-                        src="http://localhost:8000"
+                        :src="chatbotUrl"
                         width="100%"
                         frameborder="0"
                         class="chat-iframe">
@@ -158,6 +158,14 @@ export default {
             stream: null,
             downloadURL: '',
             fileName: 'video.mp4'
+        }
+    },
+    computed: {
+        chatbotUrl() {
+            // Construct chatbot URL from environment variables
+            const host = process.env.CHATBOT_HOST || 'localhost'
+            const port = process.env.CHATBOT_PORT || '8000'
+            return `http://${host}:${port}`
         }
     },
     methods: {

@@ -32,7 +32,13 @@ from models import *
 matplotlib.use('Agg')
 
 load_dotenv()
-base_url = os.getenv("API_BASE_URL")
+# Construct API URL from host and port, fallback to old format
+api_host = os.getenv("API_HOST")
+api_port = os.getenv("API_PORT")
+if api_host and api_port:
+    base_url = f"http://{api_host}:{api_port}"
+else:
+    base_url = os.getenv("API_BASE_URL")
 
 def get_user_id():
     """Get user ID from Chainlit session"""
@@ -1268,12 +1274,12 @@ async def visualize(query: str) -> VisualizationResult:
         key = result.content.strip()
 
         if key == "NO_KEY":
-            await step.stream_token("No key is relevant to the user query or the chat history.\n")
+            await step.stream_token("No data is relevant to the user query or the chat history.\n")
             step.name = "Visualization process is failed."
             await step.update()
             cl.user_session.set("code", "")
             return VisualizationResult(
-                message="No key is relevant to the user query or the chat history.",
+                message="No data is relevant to the user query or the chat history.",
                 code_generated=False
             )
 

@@ -102,7 +102,9 @@ export default {
                 const userId = 'admin'
                 const formData = new FormData()
                 formData.append('file', file)
-                const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:8001'
+                const API_BASE_URL = process.env.VUE_API_HOST && process.env.VUE_API_PORT
+                    ? `http://${process.env.VUE_API_HOST}:${process.env.VUE_API_PORT}`
+                    : process.env.VUE_APP_API_BASE_URL || 'http://localhost:8001'
                 console.log('Using API Base URL:', API_BASE_URL)
                 const response = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
                     method: 'POST',

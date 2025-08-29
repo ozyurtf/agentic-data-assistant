@@ -1,7 +1,7 @@
 services:
   backend:
-    image: fastapi
-    container_name: backend
+    image: api
+    container_name: api
     env_file:
       - .env    
     ports:
@@ -26,19 +26,22 @@ services:
     environment:
       - CHAINLIT_HOST=0.0.0.0
       - CHAINLIT_PORT=8000
-      - API_BASE_URL=http://backend:8001
+      - API_HOST=api
+      - API_PORT=8001
       - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
 
   frontend:
     image: ui
-    container_name: frontend
+    container_name: ui
     env_file:
       - .env
     ports:
       - "8080:8080"  
     environment:
-      - VUE_APP_API_BASE_URL=${VUE_APP_API_BASE_URL}
-      - VUE_APP_CHATBOT_URL=${VUE_APP_CHATBOT_URL}
+      - VUE_API_HOST=${VUE_API_HOST}
+      - VUE_API_PORT=${VUE_API_PORT}
+      - CHATBOT_HOST=${CHATBOT_HOST}
+      - CHATBOT_PORT=${CHATBOT_PORT}
       - VUE_APP_CESIUM_TOKEN=${VUE_APP_CESIUM_TOKEN}
     networks:
       - chatbot_net
