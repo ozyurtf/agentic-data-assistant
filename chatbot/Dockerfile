@@ -1,5 +1,9 @@
 FROM python:3.13.7-slim
 
+# Define build argument for chatbot port
+ARG CHATBOT_PORT=8000
+ENV CHATBOT_PORT=${CHATBOT_PORT}
+
 WORKDIR /app
 
 # System deps
@@ -16,6 +20,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-EXPOSE 8000
+EXPOSE ${CHATBOT_PORT}
 
-CMD ["chainlit", "run", "app.py", "-w"]
+CMD ["sh", "-c", "chainlit run app.py --port $CHATBOT_PORT -w"]

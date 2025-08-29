@@ -13,14 +13,14 @@ const HtmlWebpackPlugin = require('html-webpack-plugin')
 const portfinder = require('portfinder')
 const { VueLoaderPlugin }  = require('vue-loader')
 const cesiumSource =  'node_modules/cesium/Source'
-const cesiumWorkers = '../Build/Cesium/Workers'
+const cesiumWorkers = 'node_modules/cesium/Build/Cesium/Workers'
 const GitRevisionPlugin = require('git-revision-webpack-plugin')
 const gitRevisionPlugin = new GitRevisionPlugin()
 const ESLintPlugin = require('eslint-webpack-plugin');
 
 
-const HOST = '0.0.0.0'
-const PORT = process.env.PORT && Number(process.env.PORT)
+const HOST = process.env.UI_HOST || '0.0.0.0'
+const PORT = process.env.UI_PORT && Number(process.env.UI_PORT)
 
 const devWebpackConfig = merge(baseWebpackConfig, {
     mode: 'development',
@@ -74,10 +74,9 @@ const devWebpackConfig = merge(baseWebpackConfig, {
     // copy custom static assets
     new CopyWebpackPlugin({
       patterns: [
-        { from: path.resolve(cesiumSource, cesiumWorkers), to: 'Workers' },
+        { from: cesiumWorkers, to: 'Workers' },
         { from: path.resolve(cesiumSource, 'Assets'), to: 'Assets' },
         { from: path.resolve(cesiumSource, 'Widgets'), to: 'Widgets' },
-        { from: path.resolve(cesiumSource, 'ThirdParty/Workers'), to: 'ThirdParty/Workers' },
       ],
       options: {
         concurrency: 100

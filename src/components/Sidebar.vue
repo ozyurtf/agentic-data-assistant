@@ -6,7 +6,7 @@
             <a class="github" href="https://github.com/ozyurtf/agentic-data-assistant">
             <img :src="require('../assets/GitHub-Mark-64px.png').default"/>
             </a>
-            <a href="/">Agentic Data Assistant<i></i></a><a class="github" href="https://ardupilot.org/copter/docs/common-uavlogviewer.html"><img :src="require('../assets/wiki.svg').default"/></a></h1>
+            <a href="/">Agentic Data Assistant<i></i></a><a class="github" href="https://github.com/ozyurtf/agentic-data-assistant"><img :src="require('../assets/wiki.svg').default"/></a></h1>
         <!-- TABHOLDER -->
         <i class="fa fa-bars fa-2x toggle-btn" v-b-toggle.menucontent></i>
         <b-collapse class="menu-content collapse out" id="menucontent" visible>
@@ -144,7 +144,8 @@ import Dropzone from './SideBarFileManager.vue'
 import MessageMenu from './SideBarMessageMenu.vue'
 import {store} from './Globals.js'
 import PlotSetup from './PlotSetup.vue'
-
+import { CHATBOT_URL } from '@/config.js'
+        
 export default {
     name: 'sidebar',
     data () {
@@ -157,15 +158,8 @@ export default {
             recorder: null,
             stream: null,
             downloadURL: '',
-            fileName: 'video.mp4'
-        }
-    },
-    computed: {
-        chatbotUrl() {
-            // Construct chatbot URL from environment variables
-            const host = process.env.CHATBOT_HOST || 'localhost'
-            const port = process.env.CHATBOT_PORT || '8000'
-            return `http://${host}:${port}`
+            fileName: 'video.mp4',
+            chatbotUrl: CHATBOT_URL
         }
     },
     methods: {

@@ -12,22 +12,33 @@ module.exports = {
     assetsPublicPath: '/',
     proxyTable: {
     "/upload/*":{
-        target:"http://localhost:8001/upload",
-        secure:"false"
+        target: `http://api:${process.env.API_PORT || '8001'}/upload`,
+        secure:"false",
+        changeOrigin: true
     },
     "/eniro/*":{
-        target:"http://localhost:8001/eniro",
-        secure:"false"
+        target: `http://api:${process.env.API_PORT || '8001'}/eniro`,
+        secure:"false",
+        changeOrigin: true
     },
       "/uploaded/*":{
-        target:"http://localhost:8001/uploaded",
-        secure:"false"
+        target: `http://api:${process.env.API_PORT || '8001'}/uploaded`,
+        secure:"false",
+        changeOrigin: true
+      },
+      "/chatbot":{
+        target: `http://chatbot:${process.env.CHATBOT_PORT || '8000'}`,
+        secure:false,
+        pathRewrite: {
+          '^/chatbot': ''
+        },
+        changeOrigin: true
       },
     },
 
     // Various Dev Server settings
-    host: 'localhost', // can be overwritten by process.env.HOST
-    port: 8080, // can be overwritten by process.env.PORT, if port is in use, a free one will be determined
+    host: process.env.UI_HOST || 'localhost', // can be overwritten by process.env.HOST
+    port: process.env.UI_PORT || 8080, // can be overwritten by process.env.PORT, if port is in use, a free one will be determined
     autoOpenBrowser: false,
     errorOverlay: true,
     notifyOnErrors: true,

@@ -1,8 +1,7 @@
 from pathlib import Path
 from models import *
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Body, Request
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Request
 from dotenv import load_dotenv
 from pymavlink import mavutil
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -14,7 +13,6 @@ import math
 import logging
 from typing import List, Dict, Any, Optional
 import os
-import uuid
 from datetime import datetime
 
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +26,7 @@ def get_user_id(request: Request):
 # Initialize Redis with configuration from models
 redis_config = RedisConfig(
     host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6380)),
+    port=int(os.getenv("REDIS_PORT", 6379)),
     db=0,
     decode_responses=True
 )
@@ -54,7 +52,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:8080"], 
+    allow_origins=["*"],  # Allow all origins for flexibility
     allow_credentials=True,
     allow_methods=["GET", "POST", "DELETE"],
     allow_headers=["*"]

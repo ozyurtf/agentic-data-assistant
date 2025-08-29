@@ -1,5 +1,9 @@
 FROM python:3.13.7-slim
 
+# Define build argument for API port
+ARG API_PORT=8001
+ENV API_PORT=${API_PORT}
+
 WORKDIR /app
 
 # Install system deps (needed for pymavlink, matplotlib, etc.)
@@ -17,6 +21,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy FastAPI code
 COPY . .
 
-EXPOSE 8001
+EXPOSE ${API_PORT}
 
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8001", "--reload"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $API_PORT --reload"]

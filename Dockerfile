@@ -1,5 +1,10 @@
 FROM node:20
 
+# Define build argument for UI port
+ARG UI_PORT=8080
+ENV UI_PORT=${UI_PORT}
+ENV PORT=${UI_PORT}
+
 # Create app directory
 WORKDIR /usr/src/app
 
@@ -35,5 +40,5 @@ USER nodeuser
 # Configure git to trust the mounted directory
 RUN git config --global --add safe.directory /usr/src/app
 
-EXPOSE 8080
-CMD [ "npm", "run", "dev" ]
+EXPOSE ${UI_PORT}
+CMD ["npm", "run", "dev"]

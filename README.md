@@ -24,11 +24,11 @@
 
 # Running  
 
-Create a Folder Inside `fastapi`
+Create a Folder Inside `api`
 
 ```bash
-mkdir -p fastapi/files
-````
+mkdir -p api/files
+```
 
 ## Configure Environment Variables
 
@@ -63,37 +63,61 @@ MAX_MESSAGE_TYPES=3
 # App settings
 USER_AGENT=drone-chatbot
 
-# Ports and hosts
+# Ports and hosts 
 API_HOST=localhost
 API_PORT=8001
-
-VUE_API_HOST=localhost
-VUE_API_PORT=8001
 
 CHATBOT_HOST=localhost
 CHATBOT_PORT=8000
 
+UI_HOST=0.0.0.0
+UI_PORT=8080
+
 REDIS_HOST=localhost
-REDIS_PORT=6380
+REDIS_PORT=6379
+
+VUE_APP_API_BASE_URL=http://localhost:8001
+VUE_APP_CHATBOT_URL=http://localhost:8000
+
+# Note: 
+# If you change the API_HOST, API_PORT, CHATBOT_HOST, or CHATBOT_PORT,
+# you should reflect these changes in VUE_APP_API_BASE_URL and VUE_APP_CHATBOT_URL as well:
+# VUE_APP_API_BASE_URL=http://API_HOST:API_PORT
+# VUE_APP_CHATBOT_URL=http://CHATBOT_HOST:CHATBOT_PORT
 ```
+
+### Configuration Flexibility
+
+The system is fully configurable via the `.env` file:
+
+- **Ports**: Change any service port by modifying `UI_PORT`, `API_PORT`, `CHATBOT_PORT`, or `REDIS_PORT`
+- **Hosts**: Configure service hosts using `UI_HOST`, `API_HOST`, `CHATBOT_HOST`, or `REDIS_HOST`
+
+The application will automatically use your configured values throughout the entire stack.
  
 ## Run with Docker
 
-```bash
-# Build UI (Dockerfile is in root folder)
-docker build -t ui .
-
-# Build chatbot (Dockerfile is in chatbot folder)
-docker build -t chatbot ./chatbot
-
-# Build fastapi (Dockerfile is in fastapi folder)
-docker build -t api ./api
-```
-
-Once the Docker images are built, run the following command to start the services:
 
 ```bash
-docker compose up
+# Start all services (builds automatically if needed)
+docker-compose up -d
+
+# To rebuild everything from scratch
+docker-compose build --no-cache
+docker-compose up -d
+
+# To stop all services
+docker-compose down
 ```
 
-Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in.
+### Authentication
+
+Enter `admin` in the email field and `password` in the password field to log in to the application.
+
+## Access the Application
+
+Once all services are running, you can access:
+
+- **Main UI**: `http://localhost:8080/` - The main application interface
+- **Chatbot**: `http://localhost:8000/` - Direct access to the chatbot (also embedded in UI)
+- **API**: `http://localhost:8001/` - Backend API endpoints

@@ -1,5 +1,4 @@
 from typing import Literal
-import asyncio
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
 from langgraph.prebuilt import ToolNode
@@ -8,22 +7,16 @@ import chainlit as cl
 from dotenv import load_dotenv
 from firecrawl import Firecrawl
 from fastapi import Request, Response
-from typing import Annotated
-from typing_extensions import TypedDict
 from langgraph.graph import END, StateGraph, START
 from langgraph.graph.message import MessagesState
-from langchain_core.messages import BaseMessage, SystemMessage, HumanMessage, AIMessage
+from langchain_core.messages import SystemMessage, HumanMessage, AIMessage
 import requests
-from pymavlink import mavutil
 import ast
 import pandas as pd
-from collections import defaultdict
 from langchain_core.prompts import PromptTemplate
 import os
 import matplotlib
 import matplotlib.pyplot as plt
-from chainlit.types import ThreadDict
-import threading
 import asyncio
 import hashlib
 import json
@@ -1649,8 +1642,6 @@ async def on_message(msg: cl.Message):
             for char in error_message:
                 await final_answer.stream_token(char)
                 await asyncio.sleep(0.01)  # Small delay for streaming effect
-    else:
-        await final_answer.stream_token("No visualization code was generated.\n")
 
 @cl.on_stop
 def on_stop():
