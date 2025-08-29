@@ -134,7 +134,9 @@ python -m venv .venv
 ### 3. Install Dependencies 
 
 ```bash
-pip install -r requirements.txt
+pip install -r fastapi/requirements.txt
+
+pip install -r chatbot/requirements.txt
 ```
 
 **macOS/Linux:**
