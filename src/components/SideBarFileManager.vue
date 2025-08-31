@@ -1,8 +1,5 @@
 <template>
     <div>
-        <li  v-if="file==null && !sampleLoaded" >
-            <a @click="onLoadSample('sample')" class="section"><i class="fas fa-play"></i>  Open Sample </a>
-        </li>
         <li v-if="url">
             <a @click="share" class="section"><i class="fas fa-share-alt"></i> {{ shared ? 'Copied to clipboard!' :
                 'Share link'}}</a>

@@ -48,7 +48,7 @@ OPENAI_API_KEY=<your_openai_api_key>           # Get from https://platform.opena
 # Firecrawl
 FIRECRAWL_API_KEY=<your_firecrawl_api_key>     # Get from https://www.firecrawl.dev
 
-# Chainlit
+# Chatbot
 CHAINLIT_AUTH_SECRET=<your_chainlit_secret>    # Get from https://docs.chainlit.io/authentication/overview
 
 # Set the maximum file size allowed for uploading
@@ -75,6 +75,7 @@ UI_PORT=8080
 
 REDIS_HOST=localhost
 REDIS_PORT=6379
+REDIS_PASSWORD=<enter_a_password_for_redis>
 
 VUE_APP_API_BASE_URL=http://localhost:8001
 VUE_APP_CHATBOT_URL=http://localhost:8000
@@ -95,23 +96,30 @@ The system is fully configurable via the `.env` file:
 
 The application will automatically use your configured values throughout the entire stack.
  
+
+## CORS configuration
+- The API uses CORS and currently allows requests from:
+  - http://localhost:8080 (Vue frontend)
+  - http://localhost:8000 (Chatbot)
+
+If you run the frontend/chatbot on a different host or port (or deploy to a domain),
+update `allow_origins` in `api/main.py` so it includes the new origin(s). When
+`allow_credentials=True`, you must list explicit origins.
+
 ## Run with Docker
 
+```bash
+docker-compose up -d
+```
+
+Visit `http://localhost:8080/` to interact with the UI and chatbot. It takes a while for the page to be loaded.
+
+Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
 
 ```bash
-# Start all services (builds automatically if needed)
-docker-compose up -d
-
-# To rebuild everything from scratch
-docker-compose build --no-cache
-docker-compose up -d
-
 # To stop all services
 docker-compose down
 ```
-
-Visit `http://localhost:8080/` to interact with the UI and chatbot. Enter `admin` in the email field and `password` in the password field to log in to the application.
-
 
 ## Access the Application
 

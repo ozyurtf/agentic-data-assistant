@@ -60,13 +60,11 @@ services:
   redis:
     image: redis:7-alpine
     container_name: redis
-    ports:
-      - "${REDIS_PORT}:${REDIS_PORT}"
     networks:
       - chatbot_net
     volumes:
       - redis_data:/data
-    command: redis-server --port ${REDIS_PORT} --appendonly yes
+    command: ["redis-server", "--port", "${REDIS_PORT}", "--appendonly", "yes", "--protected-mode", "yes", "--requirepass", "${REDIS_PASSWORD}"]
 
 networks:
   chatbot_net:

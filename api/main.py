@@ -28,10 +28,15 @@ redis_config = RedisConfig(
     host=os.getenv("REDIS_HOST", "localhost"),
     port=int(os.getenv("REDIS_PORT", 6379)),
     db=0,
-    decode_responses=True
+    decode_responses=True,
+    password=os.getenv("REDIS_PASSWORD")
 )
 
-r = redis.Redis(**redis_config.dict())
+redis_kwargs = redis_config.dict()
+# Remove None password to avoid auth attempts when not set
+if not redis_kwargs.get("password"):
+    redis_kwargs.pop("password", None)
+r = redis.Redis(**redis_kwargs)
 
 # Initialize app configuration
 app_config = AppConfig(
@@ -52,9 +57,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for flexibility
+    allow_origins=[
+        "http://localhost:8080",  # Vue.js frontend
+        "http://localhost:8000",  # Chainlit chatbot
+    ],
     allow_credentials=True,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "DELETE", "OPTIONS"],
     allow_headers=["*"]
 )
 

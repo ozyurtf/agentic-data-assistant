@@ -1249,11 +1249,12 @@ async def visualize(query: str) -> VisualizationResult:
 
         template = """
         Pick a key from the available keys: {keys} that is the most relevant
-        for the user last query {query} and chat history: {chat_history}.
+        for the user last query {query}. If you cannot find a key that is relevant to the user query, 
+        you can check the chat history: {chat_history}.
         Only give the key, nothing else. 
 
-        If you think there is no key that is relevant to the user query
-        or that is relevant to the conversations in the recent chat history, return "NO_KEY.
+        If you still cannot find a key in {keys} that is relevant to the user query
+        or if {keys} is empty, return "NO_KEY".
         """
 
         prompt = PromptTemplate(input_variables=["query", "keys", "chat_history"], template=template)
@@ -1271,6 +1272,7 @@ async def visualize(query: str) -> VisualizationResult:
             step.name = "Visualization process is failed."
             await step.update()
             cl.user_session.set("code", "")
+            cl.user_session.set("data", {})
             return VisualizationResult(
                 message="No data is relevant to the user query or the chat history.",
                 code_generated=False

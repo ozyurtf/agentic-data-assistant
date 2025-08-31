@@ -159,6 +159,7 @@ class RedisConfig(BaseModel):
     port: int = Field(default=6379, description="Redis port")
     db: int = Field(default=0, description="Redis database number")
     decode_responses: bool = Field(default=True, description="Whether to decode Redis responses")
+    password: Optional[str] = Field(default=None, description="Redis password, if set")
 
 class AppConfig(BaseModel):
     """Application configuration"""
