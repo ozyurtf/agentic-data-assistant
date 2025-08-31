@@ -109,10 +109,11 @@ update `allow_origins` in `api/main.py` so it includes the new origin(s). When
 ## Run with Docker
 
 ```bash
+# To start building containers and running services
 docker-compose up -d
 ```
 
-Visit `http://localhost:8080/` to interact with the UI and chatbot. It takes a while for the page to be loaded.
+Visit `http://localhost:8080/` to interact with the UI and chatbot. It might take a while for the page to be loaded.
 
 Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
 
@@ -120,11 +121,3 @@ Once the page is loaded, enter `admin` in the email field and `password` in the 
 # To stop all services
 docker-compose down
 ```
-
-## Access the Application
-
-Once all services are running, you can access:
-
-- **Main UI**: `http://localhost:8080/` - The main application interface
-- **Chatbot**: `http://localhost:8000/` - Direct access to the chatbot (also embedded in UI)
-- **API**: `http://localhost:8001/` - Backend API endpoints
