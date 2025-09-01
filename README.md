@@ -24,7 +24,7 @@
 
 # Running  
 
-Create a Folder Inside `api`
+Create a `files` folder inside `api`
 
 ```bash
 mkdir -p api/files
@@ -32,7 +32,7 @@ mkdir -p api/files
 
 ## Configure Environment Variables
 
-Create a `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
+Create an `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
 
 ```env 
 # Cesium 
@@ -87,7 +87,30 @@ VUE_APP_CHATBOT_URL=http://localhost:8000
 # VUE_APP_CHATBOT_URL=http://CHATBOT_HOST:CHATBOT_PORT
 ```
 
-### Configuration Flexibility
+## Run with Docker
+
+To start building containers and running services, you can run:
+
+```bash
+# To start building containers and running services
+docker-compose up -d
+```
+
+Visit http://localhost:8080/ to interact with the UI and chatbot. The page may take a few moments to load.
+
+Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
+
+**Warning**: Please log in first before uploading a file. 
+
+To stop all services, you can run:
+
+```bash
+docker-compose down
+```
+
+# Notes
+
+## Configuration Flexibility
 
 The system is fully configurable via the `.env` file:
 
@@ -95,7 +118,7 @@ The system is fully configurable via the `.env` file:
 - **Hosts**: Configure service hosts using `UI_HOST`, `API_HOST`, `CHATBOT_HOST`, or `REDIS_HOST`
 
 The application will automatically use your configured values throughout the entire stack.
- 
+
 
 ## CORS configuration
 - The API uses CORS and currently allows requests from:
@@ -105,19 +128,3 @@ The application will automatically use your configured values throughout the ent
 If you run the frontend/chatbot on a different host or port (or deploy to a domain),
 update `allow_origins` in `api/main.py` so it includes the new origin(s). When
 `allow_credentials=True`, you must list explicit origins.
-
-## Run with Docker
-
-```bash
-# To start building containers and running services
-docker-compose up -d
-```
-
-Visit `http://localhost:8080/` to interact with the UI and chatbot. It might take a while for the page to be loaded.
-
-Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
-
-```bash
-# To stop all services
-docker-compose down
-```
