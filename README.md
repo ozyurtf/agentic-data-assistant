@@ -126,5 +126,4 @@ The application will automatically use your configured values throughout the ent
   - http://localhost:8000 (Chatbot)
 
 If you run the frontend/chatbot on a different host or port (or deploy to a domain),
-update `allow_origins` in `api/main.py` so it includes the new origin(s). When
-`allow_credentials=True`, you must list explicit origins.
+update `allow_origins` in `api/main.py` so it includes the new origin(s). 
