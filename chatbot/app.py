@@ -150,6 +150,9 @@ async def extract_data(query: str) -> DataExtractionResult:
                     msg_context = "\n".join(lines)
                     cl.user_session.set("msg_context", msg_context)
                     cl.user_session.set("data", {})
+                    cl.user_session.set("col_map", {})                    
+                    cl.user_session.set("code", "")
+                    cl.user_session.set("data", {})                    
                     cl.user_session.set("file_id", file_id)
                 else:
                     return DataExtractionResult(data={"error": "Failed to get file schema from API"})
@@ -157,7 +160,7 @@ async def extract_data(query: str) -> DataExtractionResult:
                 msg_context = cl.user_session.get("msg_context")
 
             # Step 3: AI Analysis for column mapping
-            await step.stream_token("Using AI to identify relevant fields for your query...\n")
+            await step.stream_token("Using AI to identify relevant data for your query...\n")
             await step.stream_token(f"Query: '{query}'\n")
             
             template = """
@@ -589,9 +592,14 @@ async def detect_oscillations(data_description: str) -> OscillationResult:
                         elif values.iloc[i] < values.iloc[i-1] and values.iloc[i] < values.iloc[i+1]:
                             troughs.append((values.index[i], values.iloc[i]))
                     
-                    # Method 4: Calculate approximate frequency
+                    # Method 4: Calculate approximate frequency and totals
                     total_cycles = (len(peaks) + len(troughs)) / 2
                     data_length = len(values)
+                    candidate_points = max(data_length - 2, 0)
+                    peaks_count = len(peaks)
+                    troughs_count = len(troughs)
+                    peaks_pct = (peaks_count / candidate_points * 100) if candidate_points else 0.0
+                    troughs_pct = (troughs_count / candidate_points * 100) if candidate_points else 0.0
                     
                     # Oscillation assessment
                     oscillation_score = 0
@@ -621,10 +629,11 @@ async def detect_oscillations(data_description: str) -> OscillationResult:
                     
                     # Report findings
                     result_parts.append(f"  {col} oscillation analysis:")
+                    result_parts.append(f"    Total samples: {data_length}")
                     result_parts.append(f"    Oscillation score: {oscillation_score}/6")
-                    result_parts.append(f"    Direction changes: {changes} out of {len(directions)} transitions")
-                    result_parts.append(f"    Peaks found: {len(peaks)}")
-                    result_parts.append(f"    Troughs found: {len(troughs)}")
+                    result_parts.append(f"    Direction changes: {changes} out of {len(directions)} transitions ({(changes/len(directions)*100 if len(directions) else 0):.1f}%)")
+                    result_parts.append(f"    Peaks found: {peaks_count} of {candidate_points} candidate points ({peaks_pct:.1f}%)")
+                    result_parts.append(f"    Troughs found: {troughs_count} of {candidate_points} candidate points ({troughs_pct:.1f}%)")
                     result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")
                     
                     if oscillation_score >= 3:
@@ -725,8 +734,10 @@ async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
                     threshold = 0.5  # 50% change
                     sudden_changes = pct_changes[abs(pct_changes) > threshold]
                     
+                    total_transitions = max(len(values) - 1, 0)
                     if len(sudden_changes) > 0:
-                        result_parts.append(f"  {col} sudden changes (>{threshold*100}%):")
+                        pct = (len(sudden_changes) / total_transitions * 100) if total_transitions else 0
+                        result_parts.append(f"  {col} sudden changes (>{threshold*100}%): {len(sudden_changes)} of {total_transitions} transitions ({pct:.1f}%)")
                         await step.stream_token(f"Found {len(sudden_changes)} sudden changes in {col}.\n")
                         
                         for idx in sudden_changes.index:
@@ -750,7 +761,7 @@ async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
                             
                             result_parts.append("")  # Add space between changes
                     else:
-                        result_parts.append(f"  No sudden changes detected in {col}")
+                        result_parts.append(f"  No sudden changes detected in {col} (0 of {total_transitions} transitions)")
                         await step.stream_token(f"No sudden changes detected in {col}.\n")
                 
                 result_parts.append("")  # Add space between message types
@@ -869,11 +880,15 @@ async def detect_outliers(data_description: str) -> OutlierResult:
                         await step.stream_token(f"Percentile method found {len(percentile_outliers)} outliers in {col}.\n")
                     
                     # Report findings
+                    total_points = len(values)
+                    outliers_total = len(all_outlier_indices)
+                    outliers_pct = (outliers_total / total_points * 100) if total_points else 0
                     result_parts.append(f"  {col} outlier analysis:")
+                    result_parts.append(f"    Total samples: {total_points}")
                     result_parts.append(f"    Data range: {values.min():.3f} to {values.max():.3f}")
                     result_parts.append(f"    Mean: {values.mean():.3f}, Median: {values.median():.3f}")
                     result_parts.append(f"    Standard deviation: {values.std():.3f}")
-                    result_parts.append(f"    Total unique outliers found: {len(all_outlier_indices)}")
+                    result_parts.append(f"    Total unique outliers found: {outliers_total} of {total_points} ({outliers_pct:.1f}%)")
                     
                     if outliers_found:
                         result_parts.append(f"    OUTLIERS DETECTED:")
@@ -920,7 +935,7 @@ async def detect_outliers(data_description: str) -> OutlierResult:
                                     result_parts.append(f"        Time: {time_val}")
                         
                         # Statistical impact
-                        outlier_percentage = (len(all_outlier_indices) / len(values)) * 100
+                        outlier_percentage = outliers_pct
                         result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers")
                         
                         if outlier_percentage > 10:
@@ -1249,11 +1264,10 @@ async def visualize(query: str) -> VisualizationResult:
 
         template = """
         Pick a key from the available keys: {keys} that is the most relevant
-        for the user last query {query}. If you cannot find a key that is relevant to the user query, 
-        you can check the chat history: {chat_history}.
+        for the user last query {query} and chat history: {chat_history}.
         Only give the key, nothing else. 
 
-        If you still cannot find a key in {keys} that is relevant to the user query
+        If you cannot be able to find a key in {keys} that is relevant to the user query
         or if {keys} is empty, return "NO_KEY".
         """
 
@@ -1357,18 +1371,15 @@ async def call_model(state: MessagesState):
     - `detect_sudden_changes`: Use this tool to detect sudden changes in the data.
     - `detect_oscillations`: Use this tool to detect oscillations in the data.
     - `detect_outliers`: Use this tool to detect outliers in the data.
-    - `detect_events`: Use this tool to detect events in the data.
+    - `detect_events`: Use this tool when users ask about WHEN specific events occurred.
 
     Call `extract_data` tool FIRST when users ask about:
     - Anomalies/issues in the data
-    - Maximum/minimum values
-    - Average values
-    - Sum calculations
+    - Maximum/minimum/average/sum values
     - Visualizations
     - Any analysis questions about the log data
+    - Detecting events
 
-    Call `detect_events` tool when users ask about WHEN specific events occurred:
-    - Any "when did [event] happen" questions
 
     IMPORTANT RULES:
     - CRITICAL: Call `extract_data` tool ONLY ONCE per user query. Extract ALL related fields in a SINGLE call.
@@ -1439,8 +1450,9 @@ async def quality_assurance_agent(state: MessagesState):
         
         qa_system_prompt = f"""
         You are a Quality Assurance Agent for flight log data analysis responses. 
-        Your role is to validate and improve the final answer before it reaches the user 
-        based on your knowledge of flight log data and the user's query.
+        Your role is to look from flight perspective and validate/approve/improve 
+        the final answer before it reaches the user based on your knowledge of flight log data in general
+        and the user's query.
 
         CONTEXT:
         - Original User Query: {user_query}

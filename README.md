@@ -19,7 +19,7 @@
 # Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
-<iframe width="1000" height="506" src="https://www.youtube.com/embed/xH6kAIWTbsk?si=sdeVjQmkABcztcv4" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
+<iframe width="1000" height="506" src="https://www.youtube.com/embed/bcTm4O6jOwM?si=6GKxqGFZvqzca6V3" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
 </div>
 
 # Running  
@@ -89,10 +89,9 @@ VUE_APP_CHATBOT_URL=http://localhost:8000
 
 ## Run with Docker
 
-To start building containers and running services, you can run:
+To start building containers and running services, make sure Docker Desktop application is running and run the containers:
 
 ```bash
-# To start building containers and running services
 docker-compose up -d
 ```
 
@@ -119,8 +118,7 @@ The system is fully configurable via the `.env` file:
 
 The application will automatically use your configured values throughout the entire stack.
 
-
-## CORS configuration
+## CORS Configuration
 - The API uses CORS and currently allows requests from:
   - http://localhost:8080 (Vue frontend)
   - http://localhost:8000 (Chatbot)
