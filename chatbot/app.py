@@ -161,14 +161,16 @@ async def extract_data(query: str) -> DataExtractionResult:
 
             # Step 3: AI Analysis for column mapping
             await step.stream_token("Using AI to identify relevant data for your query...\n")
-            await step.stream_token(f"Query: '{query}'\n")
+            await step.stream_token(f"User query: '{query}'\n")
             
             template = """
             Based on the user query: {query}, identify the most relevant log message type(s) 
             and the most relevant list of fields within them needed to answer the user query. 
 
+            The log message type(s) and field(s) should be part of {msg_context}.
+
             If it is available, you can use the following web content to help you 
-            identify the most relevant log message type(s) and the most relevant list of fields within them 
+            identify the most relevant log message type(s) and then the most relevant list of fields within them 
             needed to answer the user query: {web_content}
 
             **Which log message type(s) and field(s) I should extract if the user asks for the anomalies/issues observed during the flight?**
@@ -177,7 +179,7 @@ async def extract_data(query: str) -> DataExtractionResult:
             if they are in this list: {msg_context} 
             
             IMPORTANT RULES:  
-            - The `extract_data` tool is LIMITED to a maximum of 3 LogMessageTypes. 
+            - The `extract_data` tool is LIMITED to a maximum of {max_message_types} LogMessageTypes. 
             If you need more, extract the most relevant ones or make multiple requests.
 
             - It is VERY IMPORTANT that the log message type(s) and field(s) you return are 
@@ -213,10 +215,10 @@ async def extract_data(query: str) -> DataExtractionResult:
             else:
                 await step.stream_token("Web content available.\n")
                 
-            prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context"], template=template)
+            prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context", "max_message_types"], template=template)
             # Use the global model that's already configured
             chain = prompt | model
-            result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context})
+            result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context, "max_message_types": os.getenv("MAX_MESSAGE_TYPES", 3)})
             await step.stream_token(f"AI identified relevant fields: {result.content.strip()}\n")
             if result.content.strip() != "":
                 col_map = ast.literal_eval(result.content.strip())
