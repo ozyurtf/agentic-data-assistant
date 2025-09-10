@@ -114,7 +114,7 @@ docker-compose down
 - Instance type: m7i-flex.large
 - Storage: 20–30 GB
 - Number of instances: 1
-- Security group rules: Allow ports 22 (SSH from your IP), 8080 (UI), 8000 (Chatbot), 8001 (API) (0.0.0.0/0 for testing)
+- Security group rules: Allow ports `22` (SSH from your IP), `8080` (UI), `8000` (Chatbot), `8001` (API) (0.0.0.0/0 for testing)
 
 **2) Connect and Prepare the Machine**
   
@@ -170,18 +170,18 @@ docker-compose up -d
   <table width="100%">
     <tr>
       <td width="50%" align="center" valign="top">
-        <img src="images/file-upload.png" alt="File Upload Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>File Upload Flow</sub></div>
+        <img src="images/authentication.png" alt="Authentication Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>Authentication Flow</sub></div>
       </td>
       <td width="50%" align="center" valign="top">
-        <img src="images/data-extraction-tool.png" alt="Data Extraction Tool Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>Data Extraction Tool Flow</sub></div>
+        <img src="images/file-upload.png" alt="File Upload Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>File Upload Flow</sub></div>
       </td>
     </tr>
     <tr>
       <td width="50%" align="center" valign="top">
-        <img src="images/authentication.png" alt="Authentication Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>Authentication Flow</sub></div>
+        <img src="images/data-extraction-tool.png" alt="Data Extraction Tool Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>Data Extraction Tool Flow</sub></div>
       </td>
       <td width="50%" align="center" valign="top">
         <img src="images/agents.png" alt="Agents Orchestration" width="100%" style="border-radius: 8px;" />
