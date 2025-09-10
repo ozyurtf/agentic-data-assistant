@@ -128,7 +128,6 @@ async def extract_data(query: str) -> DataExtractionResult:
                 return DataExtractionResult(data={"error": f"API request failed with status {response.status_code}: {response.text}"})
             
             # Step 2: Fetch or retrieve schema
-            
             if cl.user_session.get("file_id") != file_id:
                 await step.stream_token("New file detected, fetching message schema...\n")
                 
@@ -215,10 +214,20 @@ async def extract_data(query: str) -> DataExtractionResult:
             else:
                 await step.stream_token("Web content available.\n")
                 
-            prompt = PromptTemplate(input_variables=["query", "web_content", "msg_context", "max_message_types"], template=template)
+            prompt = PromptTemplate(
+                input_variables=["query", "web_content", "msg_context", "max_message_types"], 
+                template=template
+            )
             # Use the global model that's already configured
             chain = prompt | model
-            result = chain.invoke({"query": query, "web_content": web_content, "msg_context": msg_context, "max_message_types": os.getenv("MAX_MESSAGE_TYPES", 3)})
+            result = chain.invoke(
+                {
+                    "query": query, 
+                    "web_content": web_content,
+                    "msg_context": msg_context, 
+                    "max_message_types": os.getenv("MAX_MESSAGE_TYPES", 3)
+                }
+            )
             await step.stream_token(f"AI identified relevant fields: {result.content.strip()}\n")
             if result.content.strip() != "":
                 col_map = ast.literal_eval(result.content.strip())
@@ -595,7 +604,6 @@ async def detect_oscillations(data_description: str) -> OscillationResult:
                             troughs.append((values.index[i], values.iloc[i]))
                     
                     # Method 4: Calculate approximate frequency and totals
-                    total_cycles = (len(peaks) + len(troughs)) / 2
                     data_length = len(values)
                     candidate_points = max(data_length - 2, 0)
                     peaks_count = len(peaks)
@@ -603,70 +611,14 @@ async def detect_oscillations(data_description: str) -> OscillationResult:
                     peaks_pct = (peaks_count / candidate_points * 100) if candidate_points else 0.0
                     troughs_pct = (troughs_count / candidate_points * 100) if candidate_points else 0.0
                     
-                    # Oscillation assessment
-                    oscillation_score = 0
-                    oscillation_indicators = []
-                    
-                    # High number of direction changes indicates oscillation
-                    if changes > data_length * 0.3:  # More than 30% direction changes
-                        oscillation_score += 2
-                        oscillation_indicators.append(f"High direction changes: {changes}")
-                    
-                    # High coefficient of variation indicates variability
-                    if coefficient_of_variation > 0.2:  # 20% variation
-                        oscillation_score += 1
-                        oscillation_indicators.append(f"High variability (CV: {coefficient_of_variation:.2f})")
-                    
-                    # Significant peaks and troughs
-                    if len(peaks) >= 2 and len(troughs) >= 2:
-                        oscillation_score += 2
-                        oscillation_indicators.append(f"Multiple peaks ({len(peaks)}) and troughs ({len(troughs)})")
-                    
-                    # Regular spacing between peaks/troughs (if enough data)
-                    if len(peaks) >= 3:
-                        peak_intervals = [peaks[i+1][0] - peaks[i][0] for i in range(len(peaks)-1)]
-                        if len(set(peak_intervals)) <= len(peak_intervals) * 0.5:  # Similar intervals
-                            oscillation_score += 1
-                            oscillation_indicators.append("Regular peak intervals detected")
                     
                     # Report findings
                     result_parts.append(f"  {col} oscillation analysis:")
                     result_parts.append(f"    Total samples: {data_length}")
-                    result_parts.append(f"    Oscillation score: {oscillation_score}/6")
                     result_parts.append(f"    Direction changes: {changes} out of {len(directions)} transitions ({(changes/len(directions)*100 if len(directions) else 0):.1f}%)")
                     result_parts.append(f"    Peaks found: {peaks_count} of {candidate_points} candidate points ({peaks_pct:.1f}%)")
                     result_parts.append(f"    Troughs found: {troughs_count} of {candidate_points} candidate points ({troughs_pct:.1f}%)")
-                    result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")
-                    
-                    if oscillation_score >= 3:
-                        result_parts.append(f"    OSCILLATION DETECTED - Strong oscillatory pattern")
-                        await step.stream_token(f"Strong oscillation detected in {col} (score: {oscillation_score}).\n")
-                        
-                        # Show key oscillation points
-                        if peaks:
-                            result_parts.append(f"    Peak values: {[f'{val:.2f}' for _, val in peaks[:5]]}")
-                        if troughs:
-                            result_parts.append(f"    Trough values: {[f'{val:.2f}' for _, val in troughs[:5]]}")
-                            
-                        # Show timestamps of oscillations if available
-                        if timestamp_cols:
-                            oscillation_times = []
-                            for idx, _ in (peaks + troughs)[:5]:
-                                time_val = sorted_df.loc[idx, timestamp_cols[0]]
-                                oscillation_times.append(str(time_val))
-                            result_parts.append(f"    Key oscillation times: {oscillation_times}")
-                    
-                    elif oscillation_score >= 1:
-                        result_parts.append(f"    WEAK OSCILLATION - Some oscillatory characteristics")
-                        await step.stream_token(f"Weak oscillation detected in {col} (score: {oscillation_score}).\n")
-                    else:
-                        result_parts.append(f"    NO OSCILLATION - Data appears stable/trending")
-                        await step.stream_token(f"No significant oscillation in {col}.\n")
-                    
-                    # Add detailed indicators
-                    if oscillation_indicators:
-                        result_parts.append(f"    Indicators: {', '.join(oscillation_indicators)}")
-                    
+                    result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")                    
                     result_parts.append("")  # Space between columns
                 
                 result_parts.append("")  # Space between message types
@@ -713,7 +665,6 @@ async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
             
             numeric_cols = df.select_dtypes(include=['number'])
             if not numeric_cols.empty:
-                result_parts.append(f"Sudden changes detected in {msg_type}:")
                 await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
                 
                 # Sort by timestamp if available
@@ -726,50 +677,62 @@ async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
                 for col in numeric_cols.columns:
                     await step.stream_token(f"Analyzing sudden changes in {col}...\n")
                     
-                    # Calculate percentage changes between consecutive values
+                    # Get clean numeric values and calculate percentage changes
                     values = sorted_df[col].dropna()
                     if len(values) < 2:
+                        await step.stream_token(f"Insufficient data points in {col} for change detection.\n")
                         continue
                     
                     pct_changes = values.pct_change().fillna(0)
-                    
                     threshold = 0.5  # 50% change
-                    sudden_changes = pct_changes[abs(pct_changes) > threshold]
                     
-                    total_transitions = max(len(values) - 1, 0)
-                    if len(sudden_changes) > 0:
-                        pct = (len(sudden_changes) / total_transitions * 100) if total_transitions else 0
-                        result_parts.append(f"  {col} sudden changes (>{threshold*100}%): {len(sudden_changes)} of {total_transitions} transitions ({pct:.1f}%)")
-                        await step.stream_token(f"Found {len(sudden_changes)} sudden changes in {col}.\n")
+                    # Find sudden changes using consistent indexing
+                    sudden_changes_count = 0
+                    total_transitions = len(values) - 1
+                                        
+                    for i in range(1, len(values)):
+                        change_pct = pct_changes.iloc[i]
                         
-                        for idx in sudden_changes.index:
-                            change_row = sorted_df.loc[idx]
-                            prev_idx = values.index[values.index.get_loc(idx) - 1] if values.index.get_loc(idx) > 0 else None
+                        if abs(change_pct) > threshold:
+                            sudden_changes_count += 1
                             
-                            current_value = change_row[col]
-                            change_pct = sudden_changes[idx] * 100
+                            # Get indices for current and previous values
+                            current_idx = values.index[i]
+                            prev_idx = values.index[i-1]
                             
-                            # result_parts.append(f"    Change: {change_pct:.1f}% to {current_value}")
+                            # Get the actual values
+                            current_value = values.iloc[i]
+                            prev_value = values.iloc[i-1]
+                            change_percentage = change_pct * 100
+                            
+                            # Get the full row for context
+                            change_row = sorted_df.loc[current_idx]
+                            
+                            result_parts.append(f"  Change: {change_percentage:.1f}% (from {prev_value} to {current_value}) in {col} column")
                             
                             # Include context from the row where change occurred
                             for field, value in change_row.items():
-                                if field != col:
-                                    result_parts.append(f"      {field}: {value}")
-                            
-                            # Add previous value context if available
-                            if prev_idx is not None:
-                                prev_value = sorted_df.loc[prev_idx, col]
-                                result_parts.append(f"      Previous value: {prev_value}")
+                                if field != col and pd.notna(value):
+                                    result_parts.append(f"    {field}: {value}")
                             
                             result_parts.append("")  # Add space between changes
+                    
+                    # Summary for this column
+                    if sudden_changes_count > 0:
+                        pct_sudden = (sudden_changes_count / total_transitions * 100) if total_transitions else 0
+                        result_parts.append(f"  Summary: {sudden_changes_count} sudden changes (>{threshold*100}%) out of {total_transitions} transitions ({pct_sudden:.1f}%) in {col} column")
+                        await step.stream_token(f"Found {sudden_changes_count} sudden changes in {col}.\n")
                     else:
-                        result_parts.append(f"  No sudden changes detected in {col} (0 of {total_transitions} transitions)")
-                        await step.stream_token(f"No sudden changes detected in {col}.\n")
+                        result_parts.append(f"  No sudden changes detected in {col} (0 of {total_transitions} transitions) in {col} column")
+                        await step.stream_token(f"No sudden changes detected in {col} in {col} column.\n")
+                    
+                    result_parts.append("")  # Add space between columns
                 
                 result_parts.append("")  # Add space between message types
             else:
                 await step.stream_token(f"No numeric fields found in {msg_type}.\n")
                 result_parts.append(f"No numeric data available in {msg_type} for change detection.")
+                result_parts.append("")
         
         await step.stream_token("Sudden changes detection completed successfully.\n")
         
@@ -845,7 +808,7 @@ async def detect_outliers(data_description: str) -> OutlierResult:
                         await step.stream_token(f"IQR method found {len(iqr_outliers)} outliers in {col}.\n")
                     
                     # Method 2: Z-Score Method (values beyond 2.5 standard deviations)
-                    if len(values) >= 6:  # Z-score needs reasonable sample size
+                    if len(values) >= 100:  # Z-score needs reasonable sample size
                         mean_val = values.mean()
                         std_val = values.std()
                         
@@ -900,21 +863,21 @@ async def detect_outliers(data_description: str) -> OutlierResult:
                             result_parts.append(f"      {method} method: {len(outlier_series)} outliers")
                             
                             # Show top outliers with context
-                            top_outliers = outlier_series.nlargest(3) if len(outlier_series.nlargest(3)) > 0 else outlier_series
-                            bottom_outliers = outlier_series.nsmallest(3) if len(outlier_series.nsmallest(3)) > 0 else outlier_series
+                            top_outliers = outlier_series.nlargest(5) if len(outlier_series.nlargest(5)) > 0 else outlier_series
+                            bottom_outliers = outlier_series.nsmallest(5) if len(outlier_series.nsmallest(5)) > 0 else outlier_series
                             
                             extreme_outliers = set(top_outliers.index).union(set(bottom_outliers.index))
                             
-                            for idx in list(extreme_outliers)[:5]:  # Show up to 5 most extreme
+                            for idx in list(extreme_outliers):  
                                 outlier_row = sorted_df.loc[idx]
                                 outlier_value = outlier_row[col]
                                 
-                                result_parts.append(f"        Outlier value: {outlier_value:.3f}")
+                                result_parts.append(f"        Top outlier values: {outlier_value:.3f}")
                                 
                                 # Add context from the row
                                 for field, value in outlier_row.items():
                                     if field != col:  # Don't repeat the outlier value
-                                        result_parts.append(f"          {field}: {value}")
+                                        result_parts.append(f"          {field}: {value} in {col} column")
                                 result_parts.append("")  # Space between outliers
                         
                         # Consensus outliers (found by multiple methods)
@@ -927,29 +890,22 @@ async def detect_outliers(data_description: str) -> OutlierResult:
                         
                         if method_counts:
                             result_parts.append(f"    CONSENSUS OUTLIERS (detected by multiple methods):")
-                            for idx, count in sorted(method_counts.items(), key=lambda x: x[1], reverse=True)[:3]:
+                            for idx, count in sorted(method_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
                                 outlier_row = sorted_df.loc[idx]
-                                result_parts.append(f"      Value {outlier_row[col]:.3f} detected by {count} methods")
+                                result_parts.append(f"      Value {outlier_row[col]:.3f} detected by {count} methods in {col} column")
                                 
                                 # Add timestamp context if available
                                 if timestamp_cols:
                                     time_val = outlier_row[timestamp_cols[0]]
-                                    result_parts.append(f"        Time: {time_val}")
+                                    result_parts.append(f"        Time: {time_val} in {col} column")
                         
                         # Statistical impact
                         outlier_percentage = outliers_pct
-                        result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers")
-                        
-                        if outlier_percentage > 10:
-                            result_parts.append(f"     HIGH OUTLIER RATE - Consider data quality issues")
-                        elif outlier_percentage > 5:
-                            result_parts.append(f"    MODERATE OUTLIER RATE - Monitor data quality")
-                        else:
-                            result_parts.append(f"    NORMAL OUTLIER RATE - Expected for most datasets")
-                    
+                        result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers in {col} column")
+                                         
                     else:
-                        result_parts.append(f"    NO OUTLIERS DETECTED - Data appears normally distributed")
-                        await step.stream_token(f"No outliers detected in {col}.\n")
+                        result_parts.append(f"    NO OUTLIERS DETECTED - Data appears normally distributed in {col} column")
+                        await step.stream_token(f"No outliers detected in {col} in {col} column.\n")
                     
                     result_parts.append("")  # Space between columns
                 
@@ -1013,36 +969,54 @@ async def detect_events(event_description: str) -> EventResult:
         
         IMPORTANT: Respond with ONLY a valid Python dictionary in this EXACT format:
 
-        {{"message_type": "GPS", "condition_type": "signal_loss", "field": "Status", "loss_indicators": [0, "NO_GPS", "LOST"], "description": "GPS signal lost when Status indicates no GPS"}}
+        - "threshold":
+            - Compare a numerical value against a specific threshold value. 
+            - Example: {{"message_type": "GPS", "condition_type": "threshold", "field": "NSats", "operator": ">=", "value": 6, "description": "GPS achieves 3D fix"}}
+            This detects when the number of satellites becomes 6 or more (typically needed for 3D GPS fix)
 
-        Choose the appropriate condition_type:
-        - "threshold" - for numeric comparisons (use: operator, value)
-        - "signal_loss" - for signal loss detection (use: loss_indicators)
-        - "availability" - for when field becomes valid (no extra params needed)
-        - "state_change" - for mode/state transitions (use: target_state)
+        - "loss": 
+            - Detect when a signal, connection, or data stream is lost or becomes invalid. 
+            - Example: {{"message_type": "GPS", "condition_type": "loss", "field": "Status", "description": "GPS signal lost"}}
+            This detects when the "Status" field in the "GPS" message type first becomes invalid.
 
-        Examples:
-        - GPS 3D fix: {{"message_type": "GPS", "condition_type": "threshold", "field": "NSats", "operator": ">=", "value": 6, "description": "GPS achieves 3D fix"}}
-        - GPS signal lost: {{"message_type": "GPS", "condition_type": "signal_loss", "field": "Status", "loss_indicators": [0, "NO_GPS", "LOST"], "description": "GPS signal lost"}}
-        - GPS yaw available: {{"message_type": "GPS", "condition_type": "availability", "field": "YawDeg", "description": "GPS yaw becomes available"}}
-        - Mode change: {{"message_type": "MODE", "condition_type": "state_change", "field": "Mode", "target_state": "AUTO", "description": "Vehicle enters AUTO mode"}}
+        - "availability": 
+            - Detect when a field becomes available or valid for the first time. This is essentially the opposite of "loss".
+            - Example: {{"message_type": "GPS", "condition_type": "availability", "field": "YawDeg", "description": "GPS yaw becomes available"}}
+            This detect when YawDeg first has a valid value (non-zero, non-null)
 
-        For the query "{event_description}", respond with ONE Python dictionary only:
+        - "state_change":
+            - Detect when a field transitions to a specific state or mode.
+            - Example: {{"message_type": "MODE", "condition_type": "state_change", "field": "Mode", "target_state": "AUTO", "description": "Vehicle enters AUTO mode"}}
+            This detects when the "Mode" field transitions to "AUTO".
+
+        For the query, respond with ONE dictionary only. Nothing else.
         """
         
         col_map = cl.user_session.get("col_map", {})
         prompt = PromptTemplate(input_variables=["event_description", "col_map"], template=template)
         chain = prompt | model
         result = chain.invoke({"event_description": event_description, "col_map": col_map})
+        await step.stream_token(f"AI parsed event detection config:\n{result.content.strip()}\n")
         
         try:
-            detection_config = ast.literal_eval(result.content.strip())
-            await step.stream_token(f"AI parsed event detection config: {detection_config}\n")
+            response_text = result.content.strip()
+            
+            import re
+            dict_match = re.search(r'\{.*\}', response_text, re.DOTALL)
+            
+            if dict_match:
+                dict_str = dict_match.group(0)
+                detection_config = ast.literal_eval(dict_str)
+                await step.stream_token(f"Successfully parsed detection config: {detection_config}\n")
+            else:
+                raise ValueError("No dictionary found in AI response")
+                
         except Exception as e:
             await step.stream_token(f"Error parsing detection config: {str(e)}\n")
+            await step.stream_token(f"Raw AI response: '{response_text}'\n")
             return EventResult(
                 message="Event detection failed",
-                events=f"Error parsing event detection logic: {str(e)}"
+                events=f"Error parsing event detection logic: {str(e)}. AI response was: '{response_text[:200]}...'"
             )
         
         # Find the target message type in available data
@@ -1119,17 +1093,16 @@ async def detect_events(event_description: str) -> EventResult:
                     first_occurrence = df.loc[first_true_indices[0]]
                     event_detected = True
                     
-            elif condition_type == "signal_loss":
-                loss_indicators = detection_config.get("loss_indicators", [])
-                await step.stream_token(f"Checking signal loss condition for indicators: {loss_indicators}\n")
+            elif condition_type == "loss":
+                message_type = detection_config.get("message_type", "")
+                await step.stream_token(f"Checking loss condition for: {message_type} and {target_field}\n")
                 
-                # Check for any of the loss indicators
-                condition_mask = pd.Series([False] * len(df), index=df.index)
-                for indicator in loss_indicators:
-                    if isinstance(indicator, str):
-                        condition_mask |= df[target_field].astype(str).str.contains(indicator, case=False, na=False)
-                    else:
-                        condition_mask |= (df[target_field] == indicator)
+                # Detect when target_field first becomes None/"None"/"" (after strip)
+                series = df[target_field]
+                condition_mask = series.isna()
+                if series.dtype == 'object':
+                    s_str = series.astype(str).str.strip()
+                    condition_mask |= (s_str == "") | (s_str.str.lower() == "none")
                 
                 first_true_indices = df[condition_mask].index
                 if len(first_true_indices) > 0:
@@ -1382,7 +1355,6 @@ async def call_model(state: MessagesState):
     - Any analysis questions about the log data
     - Detecting events
 
-
     IMPORTANT RULES:
     - CRITICAL: Call `extract_data` tool ONLY ONCE per user query. Extract ALL related fields in a SINGLE call.
     - For queries asking about multiple related values (e.g., "roll and pitch", "latitude and longitude", "GPS and altitude"), 
@@ -1453,7 +1425,7 @@ async def quality_assurance_agent(state: MessagesState):
         qa_system_prompt = f"""
         You are a Quality Assurance Agent for flight log data analysis responses. 
         Your role is to look from flight perspective and validate/approve/improve 
-        the final answer before it reaches the user based on your knowledge of flight log data in general
+        the final answer before it reaches the user based on your knowledge of flight data in general
         and the user's query.
 
         CONTEXT:
@@ -1469,13 +1441,14 @@ async def quality_assurance_agent(state: MessagesState):
         5. **Formatting**: Is it well-structured and readable?
 
         VALIDATION RULES:
-        - For GPS questions: Ensure proper interpretation of GPS status, satellite counts, fix types
         - For event timing: Verify timestamps and event logic make sense
-        - For anomaly detection: Check if interpretations are reasonable for flight data
-        - For numerical results: Ensure values are within realistic ranges for aviation data
+        - For anomaly detection: Check if interpretations are reasonable for flight data and 
+        if numerical analysis results can be interpreted as anomalies.
         - For visualizations: Confirm descriptions match typical flight patterns
 
         INSTRUCTIONS:
+        Check the numerical analysis results, make sure they make sense and reinterpret them 
+        based on the user query if needed.
         If the answer is good as-is, return it exactly as provided.
         If improvements are needed, provide a better version that addresses any issues.
         DO NOT return JSON - return the actual answer content that should be shown to the user.

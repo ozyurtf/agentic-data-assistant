@@ -87,7 +87,7 @@ VUE_APP_CHATBOT_URL=http://localhost:8000
 # VUE_APP_CHATBOT_URL=http://CHATBOT_HOST:CHATBOT_PORT
 ```
 
-## Run with Docker
+## Run with Docker Locally
 
 To start building containers and running services, make sure Docker Desktop application is running and run the containers:
 
@@ -95,7 +95,7 @@ To start building containers and running services, make sure Docker Desktop appl
 docker-compose up -d
 ```
 
-Visit http://localhost:8080/ to interact with the UI and chatbot. The page may take a few moments to load.
+Visit `http://localhost:8080/` to interact with the UI and chatbot. The page may take a few moments to load.
 
 Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
 
@@ -106,6 +106,92 @@ To stop all services, you can run:
 ```bash
 docker-compose down
 ```
+
+## Run with Docker in AWS EC2
+
+**1) Create EC2 Instance**
+- AMI: Ubuntu 24.04 LTS
+- Instance type: m7i-flex.large
+- Storage: 20–30 GB
+- Number of instances: 1
+- Security group rules: Allow ports 22 (SSH from your IP), 8080 (UI), 8000 (Chatbot), 8001 (API) (0.0.0.0/0 for testing)
+
+**2) Connect and Prepare the Machine**
+  
+```bash  
+ssh -i your-key.pem ubuntu@your-public-ip
+  
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io git
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+  
+# Install Docker Compose
+sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+sudo chmod +x /usr/local/bin/docker-compose
+  
+exit
+```
+
+```bash
+ssh -i your-key.pem ubuntu@your-public-ip
+```
+
+**3) Deploy Code**
+
+Clone your repository and configure environment:
+
+```bash  
+git clone https://github.com/ozyurtf/agentic-data-assistant.git
+cd agentic-data-assistant
+
+# Create and edit .env using the variables listed in the "Configure Environment Variables" section above
+touch .env
+nano .env   # set OPENAI_API_KEY, VUE_APP_CESIUM_TOKEN, FIRECRAWL_API_KEY, etc.
+```
+
+**4) Launch Services**
+  
+```bash
+docker-compose up -d
+```
+
+**5) Access**
+
+- UI at `http://your-public-ip:8080`
+- Chatbot at `http://your-public-ip:8000`
+- API docs at `http://your-public-ip:8001/docs`
+
+- Default login: `admin` / `password`
+
+# Flow Diagrams
+
+<div align="center">
+  <table width="100%">
+    <tr>
+      <td width="50%" align="center" valign="top">
+        <img src="images/file-upload.png" alt="File Upload Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>File Upload Flow</sub></div>
+      </td>
+      <td width="50%" align="center" valign="top">
+        <img src="images/data-extraction-tool.png" alt="Data Extraction Tool Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>Data Extraction Tool Flow</sub></div>
+      </td>
+    </tr>
+    <tr>
+      <td width="50%" align="center" valign="top">
+        <img src="images/authentication.png" alt="Authentication Flow" width="100%" style="border-radius: 8px;" />
+        <div><sub>Authentication Flow</sub></div>
+      </td>
+      <td width="50%" align="center" valign="top">
+        <img src="images/agents.png" alt="Agents Orchestration" width="100%" style="border-radius: 8px;" />
+        <div><sub>Agents Orchestration</sub></div>
+      </td>
+    </tr>
+  </table>
+  <br/>
+</div>
+
 
 # Notes
 
@@ -120,8 +206,8 @@ The application will automatically use your configured values throughout the ent
 
 ## CORS Configuration
 - The API uses CORS and currently allows requests from:
-  - http://localhost:8080 (Vue frontend)
-  - http://localhost:8000 (Chatbot)
+  `- http://localhost:8080` (Vue frontend)
+  `- http://localhost:8000` (Chatbot)
 
 If you run the frontend/chatbot on a different host or port (or deploy to a domain),
 update `allow_origins` in `api/main.py` so it includes the new origin(s). 
