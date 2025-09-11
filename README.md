@@ -10,8 +10,8 @@
 - Redis caching for extracted data <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Web scraping integration with Firecrawl <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- File management system <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- File management system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Chat history persistence and storage <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 - Safety validation for LLM-generated data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
 - MCP server for executing data visualization code <span style="color: #dc3545; font-weight: bold;">**(Not Started Yet)**</span>
