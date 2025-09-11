@@ -164,35 +164,6 @@ docker-compose up -d
 
 - Default login: `admin` / `password`
 
-# Flow Diagrams
-
-<div align="center">
-  <table width="100%">
-    <tr>
-      <td width="50%" align="center" valign="top">
-        <img src="images/authentication.png" alt="Authentication Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>Authentication Flow</sub></div>
-      </td>
-      <td width="50%" align="center" valign="top">
-        <img src="images/file-upload.png" alt="File Upload Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>File Upload Flow</sub></div>
-      </td>
-    </tr>
-    <tr>
-      <td width="50%" align="center" valign="top">
-        <img src="images/data-extraction-tool.png" alt="Data Extraction Tool Flow" width="100%" style="border-radius: 8px;" />
-        <div><sub>Data Extraction Tool Flow</sub></div>
-      </td>
-      <td width="50%" align="center" valign="top">
-        <img src="images/agents.png" alt="Agents Orchestration" width="100%" style="border-radius: 8px;" />
-        <div><sub>Agents Orchestration</sub></div>
-      </td>
-    </tr>
-  </table>
-  <br/>
-</div>
-
-
 # Notes
 
 ## Configuration Flexibility
