@@ -14,7 +14,7 @@
 
 # Demo
 
-<img src="images/demo.png" alt="" width="100%">
+<a href="https://www.youtube.com/watch?v=0gnxuxyAHpI"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
 
 # System
 
