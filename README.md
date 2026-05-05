@@ -18,9 +18,9 @@
 
 # System
 
-<table width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
-<td width="50%" valign="top"><img src="images/authentication.png" alt="" width="100%"></td>
-<td width="50%" valign="top"><img src="images/file-upload.png" alt="" width="100%"></td>
+<table width="100%" cellpadding="0" cellspacing="0" border="0" style="table-layout:fixed;border-collapse:collapse;"><tbody><tr>
+<td width="50%" style="padding:0;width:50%;vertical-align:middle;text-align:center;"><img src="images/authentication.png" alt="" style="width:100%;height:640px;object-fit:contain;display:block;"></td>
+<td width="50%" style="padding:0;width:50%;vertical-align:middle;text-align:center;"><img src="images/file-upload.png" alt="" style="width:100%;height:640px;object-fit:contain;display:block;"></td>
 </tr></tbody></table>
 <img src="images/data-extraction-tool.png" alt="" width="100%">
 <img src="images/agents.png" alt="" width="100%">
