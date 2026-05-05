@@ -18,9 +18,9 @@
 
 # System
 
-<div style="display:flex;justify-content:space-between;align-items:center;width:100%;">
-<img src="images/authentication.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;">
-<img src="images/file-upload.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;">
+<div style="display:flex;align-items:center;width:100%;margin:0;padding:0;">
+<img src="images/authentication.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;margin-right:auto;">
+<img src="images/file-upload.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;margin-left:auto;">
 </div>
 <img src="images/data-extraction-tool.png" alt="" width="100%">
 <img src="images/agents.png" alt="" width="100%">
