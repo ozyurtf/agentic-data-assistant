@@ -18,6 +18,15 @@
 <iframe width="1000" height="506" src="https://www.youtube.com/embed/0gnxuxyAHpI?si=gSNs7bPwrCCJ1UBS" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
 </div>
 
+# System
+
+<div style="display:flex;align-items:center;width:100%;margin:0;padding:0;">
+<img src="images/authentication.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;margin-right:auto;">
+<img src="images/file-upload.png" alt="" style="width:49%;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;margin-left:auto;">
+</div>
+<img src="images/data-extraction-tool.png" alt="" width="100%">
+<img src="images/agents.png" alt="" width="100%">
+
 # Running  
 
 Create a `files` folder inside `api`
