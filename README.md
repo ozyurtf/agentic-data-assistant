@@ -14,27 +14,16 @@
 
 # Demo
 
-<p align="center">
-  <img src="images/demo.png" alt="Agentic data assistant demo" width="760">
-</p>
+<img src="images/demo.png" alt="" width="100%">
 
 # System
 
-| **Authentication** | **File upload** |
-| :---: | :---: |
-| <img src="images/authentication.png" alt="Authentication flow" width="280"> | <img src="images/file-upload.png" alt="File upload flow" width="280"> |
-
-## Data extraction tools
-
-<p align="center">
-  <img src="images/data-extraction-tool.png" alt="Data extraction tools" width="760">
-</p>
-
-## Agents
-
-<p align="center">
-  <img src="images/agents.png" alt="Agentic agents" width="620">
-</p>
+<table width="100%" cellpadding="0" cellspacing="0" border="0"><tbody><tr>
+<td width="50%" valign="top"><img src="images/authentication.png" alt="" width="100%"></td>
+<td width="50%" valign="top"><img src="images/file-upload.png" alt="" width="100%"></td>
+</tr></tbody></table>
+<img src="images/data-extraction-tool.png" alt="" width="100%">
+<img src="images/agents.png" alt="" width="100%">
 
 # Running  
 
