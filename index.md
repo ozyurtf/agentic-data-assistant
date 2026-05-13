@@ -12,7 +12,6 @@
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Integrating photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-
 - Password hashing with argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Integrating sign-up and log-in mechanisms <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
@@ -29,12 +28,10 @@
 
 # System
 
-<div style="display:flex;align-items:center;justify-content:center;gap:2%;width:100%;margin:0;padding:0;">
-<img src="images/authentication.png" alt="" style="width:auto;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;max-width:49%;">
-<img src="images/file-upload.png" alt="" style="width:auto;height:640px;object-fit:contain;display:block;margin:0;padding:0;flex-shrink:0;max-width:49%;">
-</div>
-<img src="images/data-extraction-tool.png" alt="" width="100%">
-<img src="images/agents.png" alt="" width="100%">
+<p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
+<p align="center"><img src="images/file-upload.png" alt="" width="100%"></p>
+<p align="center"><img src="images/data-extraction-tool.png" alt="" width="100%"></p>
+<p align="center"><img src="images/agents.png" alt="" width="100%"></p>
 
 # Running  
 
