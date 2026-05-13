@@ -28,6 +28,14 @@
                 (m)
             </label>
         </div>
+        <!-- Map Mode -->
+        <div>
+            <label> Map Mode</label>
+            <select class="cesium-button" v-model="state.mapMode" style="display: block;">
+                <option value="google">Photorealistic</option>
+                <option value="terrain">Terrain</option>
+            </select>
+        </div>
         <!-- Trajectory Source -->
         <div>
             <label> Trajectory Source</label>

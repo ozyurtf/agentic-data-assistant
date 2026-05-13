@@ -60,7 +60,8 @@ import {
     PolylineColorAppearance,
     Primitive,
     ShaderSource,
-    ImageMaterialProperty
+    ImageMaterialProperty,
+    createGooglePhotorealistic3DTileset
 } from 'cesium'
 
 import { DateTime } from 'luxon'
@@ -88,6 +89,7 @@ import {
 Ion.defaultAccessToken = process.env.VUE_APP_CESIUM_TOKEN || ''
 const cesiumResurceId = process.env.VUE_APP_CESIUM_RESOURCE_ID || 3
 const mapTilerKey = process.env.VUE_APP_MAPTILER_KEY || ''
+const googleMapsKey = process.env.VUE_APP_GOOGLE_MAPS_KEY || ''
 console.log('mapTilerKey: ' + mapTilerKey)
 
 const colorCoderMode = new ColorCoderMode(store)
@@ -126,6 +128,7 @@ export default {
         this.waypoints = null // Autopilot Waypoints
         this.trajectory = null // GPS trajectory (in degrees)
         this.correctedTrajectory = [] // GPS trajectory (Cartographic array)
+        this.activeMapTileset = null // Currently active 3D tileset (Google / OSM)
 
         // Link time with plot updates
         this.$eventHub.$on('hoveredTime', this.showAttitude)
@@ -145,7 +148,7 @@ export default {
                 if (this.state.isOnline) {
                     this.viewer = this.createViewer(true)
                     if (this.state.vehicle !== 'boat') {
-                        this.viewer.terrainProvider = await createWorldTerrainAsync()
+                        await this.applyMapMode(this.state.mapMode)
                     }
                 } else {
                     this.viewer = this.createViewer(false)
@@ -212,13 +215,15 @@ export default {
                     150.0,
                     1.0
                 )
-                this.viewer.scene.globe.translucency.enabled = true
-                this.viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
-                this.viewer.scene.globe.undergroundColor = Color.MIDNIGHTBLUE
-                this.viewer.scene.globe.undergroundColorAlphaByDistance.near = 2
-                this.viewer.scene.globe.undergroundColorAlphaByDistance.far = 10
-                this.viewer.scene.globe.undergroundColorAlphaByDistance.nearValue = 0.2
-                this.viewer.scene.globe.undergroundColorAlphaByDistance.farValue = 1.0
+                if (this.viewer.scene.globe.show) {
+                    this.viewer.scene.globe.translucency.enabled = true
+                    this.viewer.scene.screenSpaceCameraController.enableCollisionDetection = false
+                    this.viewer.scene.globe.undergroundColor = Color.MIDNIGHTBLUE
+                    this.viewer.scene.globe.undergroundColorAlphaByDistance.near = 2
+                    this.viewer.scene.globe.undergroundColorAlphaByDistance.far = 10
+                    this.viewer.scene.globe.undergroundColorAlphaByDistance.nearValue = 0.2
+                    this.viewer.scene.globe.undergroundColorAlphaByDistance.farValue = 1.0
+                }
             }
             this.addBathymetryButton()
             this.addCenterVehicleButton()
@@ -243,6 +248,49 @@ export default {
                 'low - czm_encodedCameraPositionMCLow;',
                 '(low - czm_encodedCameraPositionMCLow) * (1.0 + czm_epsilon7);'
             )
+        },
+        async applyMapMode (mode) {
+            if (!this.viewer) return
+            // Remove previous tileset if any
+            if (this.activeMapTileset) {
+                this.viewer.scene.primitives.remove(this.activeMapTileset)
+                this.activeMapTileset = null
+            }
+            // Ensure terrain provider is set for elevation queries
+            const tp = this.viewer.terrainProvider
+            const noRealTerrain = !tp || tp.constructor.name === 'EllipsoidTerrainProvider'
+            if (noRealTerrain) {
+                try {
+                    this.viewer.terrainProvider = await createWorldTerrainAsync()
+                } catch (e) {
+                    console.warn('[MapMode] terrain provider load failed:', e)
+                }
+            }
+            if (mode === 'google') {
+                if (!googleMapsKey) {
+                    console.warn('[MapMode] google requested but no key — falling back to terrain')
+                    this.viewer.scene.globe.show = true
+                    return
+                }
+                try {
+                    const tileset = await createGooglePhotorealistic3DTileset({
+                        key: googleMapsKey,
+                        onlyUsingWithGoogleGeocoder: true
+                    })
+                    this.viewer.scene.primitives.add(tileset)
+                    this.activeMapTileset = tileset
+                    this.viewer.scene.globe.show = false
+                    this.viewer.scene.skyAtmosphere.show = true
+                } catch (err) {
+                    console.error('[MapMode] Google tileset failed:', err)
+                    this.viewer.scene.globe.show = true
+                }
+            } else {
+                // 'terrain' — Cesium globe with terrain + imagery, no buildings
+                this.viewer.scene.globe.show = true
+                this.viewer.scene.skyAtmosphere.show = true
+            }
+            this.viewer.scene.requestRender()
         },
         async updateColor () {
             const newCoder = this.availableColorCoders[this.selectedColorCoder]
@@ -1074,7 +1122,7 @@ export default {
                         // TODO: fix this coordinate system!
                         const hpRoll = Transforms.headingPitchRollQuaternion(
                             position,
-                            new HeadingPitchRoll(-yaw, -pitch, roll - 3.14),
+                            new HeadingPitchRoll(-yaw + Math.PI, -pitch, roll - 3.14),
                             Ellipsoid.WGS84,
                             fixedFrameTransform
                         )
@@ -1092,7 +1140,7 @@ export default {
                         const att = this.state.timeAttitude[atti]
                         const hpRoll = Transforms.headingPitchRollQuaternion(
                             position,
-                            new HeadingPitchRoll(att[2], att[1], att[0]),
+                            new HeadingPitchRoll(att[2] + Math.PI, att[1], att[0]),
                             Ellipsoid.WGS84,
                             fixedFrameTransform
                         )
@@ -1116,8 +1164,9 @@ export default {
                 orientation: sampledOrientation,
                 model: {
                     uri: this.getVehicleModel(),
-                    minimumPixelSize: 15,
-                    scale: this.modelScale / 10
+                    minimumPixelSize: 32,
+                    scale: this.modelScale / 10,
+                    runAnimations: true
                 },
                 viewFrom: new Cartesian3(5, 0, 3)
             })
@@ -1353,16 +1402,11 @@ export default {
             if (type === 'submarine') {
                 return require('../assets/bluerovsimple.glb').default
             }
-            if (type === 'quadcopter+') {
-                return require('../assets/quadp.glb').default
-            }
-            if (type === 'quadcopterx' || type === 'quadcopter') {
-                return require('../assets/quadx.glb').default
-            }
             if (type === 'boat') {
                 return require('../assets/boat.glb').default
             }
-            return require('../assets/plane.glb').default
+            // All aerial vehicle types use the new drone model
+            return require('../assets/drone.glb').default
         },
         loadTrajectory (source) {
             this.waitForMessages([source]).then(() => {
@@ -1530,6 +1574,9 @@ export default {
         },
         attitudeSource () {
             this.loadAttitude(this.state.attitudeSource)
+        },
+        'state.mapMode' (newMode) {
+            this.applyMapMode(newMode)
         }
     }
 }

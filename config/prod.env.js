@@ -3,7 +3,8 @@ module.exports = {
   NODE_ENV: '"production"',
   VUE_APP_CESIUM_TOKEN: JSON.stringify(process.env.VUE_APP_CESIUM_TOKEN || ''),
   VUE_APP_CESIUM_RESOURCE_ID: JSON.stringify(process.env.VUE_APP_CESIUM_RESOURCE_ID || 3),
-  VUE_APP_MAPTILER_KEY: JSON.stringify(process.env.VUE_APP_MAPTILER_KEY || 'o3JREHNnXex8WSPPm2BU'),
+  VUE_APP_MAPTILER_KEY: JSON.stringify(process.env.VUE_APP_MAPTILER_KEY || ''),
+  VUE_APP_GOOGLE_MAPS_KEY: JSON.stringify(process.env.VUE_APP_GOOGLE_MAPS_KEY || ''),
   // Environment variables for browser access
   VUE_APP_API_BASE_URL: JSON.stringify(process.env.VUE_APP_API_BASE_URL || 'http://localhost:8001'),
   VUE_APP_CHATBOT_URL: JSON.stringify(process.env.VUE_APP_CHATBOT_URL || '/chatbot'),

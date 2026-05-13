@@ -48,6 +48,7 @@ export const store = {
     attitudeSource: null,
     showWaypoints: true,
     cameraType: 'follow',
+    mapMode: 'google', // 'google' | 'osm' | 'terrain'
     expressions: [], // holds message name
     expressionErrors: [],
     plotCache: {},

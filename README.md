@@ -2,15 +2,22 @@
 
 # Features
 
+- Multi-agent system development and integration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Backend API development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Agentic chatbot development and integration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Session management <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Integration of data analytics tools executable by LLMs with result interpretation <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Integration of different data analytics tools executable by LLMs with result interpretation <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Redis caching for extracted data <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Web scraping integration with Firecrawl <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Integrating photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+
+- Password hashing with argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Integrating sign-up and log-in mechanisms <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Creating PostgreSQL database in AWS to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Creating S3 bucket in AWS to temporarily store the files uploaded by the user <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
 # Demo
 
@@ -41,6 +48,9 @@ Create an `.env` file in the root folder with the following values. The environm
 # Cesium 
 VUE_APP_CESIUM_TOKEN=<your_cesium_ion_token>   # Get from https://ion.cesium.com/signin
 VUE_APP_CESIUM_RESOURCE_ID=3
+
+# Google Maps Platform
+VUE_APP_GOOGLE_MAPS_KEY=<your_google_maps_key>
 
 # MapTiler 
 VUE_APP_MAPTILER_KEY=<your_maptiler_key>       # Get from https://docs.maptiler.com/cloud/api/authentication-key/
