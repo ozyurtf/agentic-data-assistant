@@ -39,8 +39,8 @@ export const store = {
     namedFloats: [],
     metadata: null,
     // cesium menu:
-    modelScale: 1.0,
-    heightOffset: 0.0,
+    modelScale: 15.0,
+    heightOffset: 605.0,
     showClickableTrajectory: false,
     showTrajectory: true,
     trajectorySources: [],
@@ -49,6 +49,7 @@ export const store = {
     showWaypoints: true,
     cameraType: 'follow',
     mapMode: 'google', // 'google' | 'osm' | 'terrain'
+    sidebarVisible: true,
     expressions: [], // holds message name
     expressionErrors: [],
     plotCache: {},

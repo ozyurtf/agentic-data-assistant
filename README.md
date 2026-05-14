@@ -20,7 +20,7 @@
 
 # Demo
 
-<a href="https://www.youtube.com/watch?v=0gnxuxyAHpI"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
+<a href="https://www.youtube.com/watch?v=YxMibQv7w8o"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
 
 # System
 

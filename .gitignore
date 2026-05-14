@@ -89,3 +89,6 @@ anomaly-template.txt
 __pycache__
 .DS_Store
 agentic-data-assistant.pptx
+
+api/files
+dump.rdb

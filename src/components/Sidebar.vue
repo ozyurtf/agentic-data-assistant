@@ -1,7 +1,19 @@
 <template>
 <!-- HEADER -->
-    <div class="nav-side-menu col-lg-2">
+    <div>
+    <button
+        v-show="!state.sidebarVisible"
+        class="sidebar-open-btn"
+        title="Show sidebar"
+        @click="state.sidebarVisible = true"
+    >
+        <i class="fa fa-chevron-right"></i>
+    </button>
+    <div class="nav-side-menu col-lg-2" v-show="state.sidebarVisible">
 
+        <button class="sidebar-close-btn" @click="state.sidebarVisible = false" title="Hide sidebar">
+            <i class="fa fa-times"></i>
+        </button>
         <h1 class="brand">
             <a class="github" href="https://github.com/ozyurtf/agentic-data-assistant">
             <img :src="require('../assets/GitHub-Mark-64px.png').default"/>
@@ -137,6 +149,7 @@
             </b-collapse>
         </div>
     </div>
+    </div>
 </template>
 <script>
 /* eslint-disable */
@@ -251,6 +264,56 @@ export default {
 </style>
 
 <style>
+.sidebar-open-btn {
+    position: fixed;
+    top: 50%;
+    left: 0;
+    transform: translateY(-50%);
+    z-index: 1100;
+    width: 28px;
+    height: 64px;
+    border: none;
+    border-radius: 0 8px 8px 0;
+    background-color: rgba(32, 32, 32, 0.85);
+    color: #ffffff;
+    font-size: 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 2px 0 8px rgba(0, 0, 0, 0.3);
+    transition: background-color 0.15s ease, width 0.15s ease;
+}
+.sidebar-open-btn:hover {
+    background-color: rgba(60, 60, 60, 0.95);
+    width: 34px;
+}
+.sidebar-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    z-index: 10;
+    width: 32px;
+    height: 32px;
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    border-radius: 50%;
+    background-color: #1a1a1a;
+    color: #ffffff;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+.sidebar-close-btn:hover {
+    background-color: rgba(255, 80, 80, 0.85);
+    border-color: rgba(255, 80, 80, 1);
+    transform: rotate(90deg);
+}
+.sidebar-close-btn:focus {
+    outline: none;
+}
 .chat-container {
     height: calc(100vh - 120px); /* Adjust 200px based on your header height */
     overflow: hidden;

@@ -20,7 +20,15 @@
 
             <sidebar/>
 
-            <main class="col-md-9 ml-sm-auto col-lg-10 flex-column d-sm-flex" role="main">
+            <main
+                :class="[
+                    'ml-sm-auto',
+                    'flex-column',
+                    'd-sm-flex',
+                    state.sidebarVisible ? 'col-md-9 col-lg-10' : 'col-12'
+                ]"
+                role="main"
+            >
 
                 <div class="row"
                      v-bind:class="[state.showMap ? 'h-50' : 'h-100']"

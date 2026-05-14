@@ -426,8 +426,8 @@ export default {
             * */
             this.state.trajectorySource = this.state.trajectorySources[0]
             this.loadTrajectory(this.state.trajectorySource)
-            this.state.heightOffset = 0
-            this.state.heightOffset = updatedPositions[0].height
+            // heightOffset auto-detection removed — uses the default from Globals.js (605)
+            // unless the user manually overrides via the Altitude Offset input
             this.processTrajectory(this.state.currentTrajectory)
             this.addModel()
             this.updateAndPlotTrajectory()
@@ -1186,7 +1186,8 @@ export default {
             const isBoat = this.state.vehicle === 'boat'
             const startTime = this.cesiumTimeToMs(this.timelineStart)
             const endTime = this.cesiumTimeToMs(this.timelineStop)
-            const geometryInstances = []
+            const mainInstances = []
+            const haloInstances = []
             let currentSegment = []
             let currentColor = this.getModeColor(this.points[0][3])
 
@@ -1201,6 +1202,18 @@ export default {
                 }
             }
 
+            const pushSegment = (segment, color) => {
+                if (segment.length < 2) return
+                mainInstances.push(new GeometryInstance({
+                    geometry: new PolylineGeometry({ positions: segment, width: 3.0 }),
+                    attributes: { color: ColorGeometryInstanceAttribute.fromColor(color) }
+                }))
+                haloInstances.push(new GeometryInstance({
+                    geometry: new PolylineGeometry({ positions: segment, width: 18.0 }),
+                    attributes: { color: ColorGeometryInstanceAttribute.fromColor(color.withAlpha(0.35)) }
+                }))
+            }
+
             for (const pos of this.points.slice(first, last)) {
                 const position = Cartesian3.fromDegrees(
                     pos[0],
@@ -1212,18 +1225,7 @@ export default {
 
                 if (!Color.equals(newColor, currentColor)) {
                     currentSegment.push(position)
-                    if (currentSegment.length > 1) {
-                        geometryInstances.push(new GeometryInstance({
-                            geometry: new PolylineGeometry({
-                                positions: currentSegment,
-                                width: 3.0
-                            }),
-                            attributes: {
-                                color: ColorGeometryInstanceAttribute.fromColor(currentColor)
-                            }
-                        }))
-                    }
-
+                    pushSegment(currentSegment, currentColor)
                     currentColor = newColor
                     currentSegment = [position]
                 } else {
@@ -1231,31 +1233,27 @@ export default {
                 }
             }
 
-            if (currentSegment.length > 1) {
-                geometryInstances.push(new GeometryInstance({
-                    geometry: new PolylineGeometry({
-                        positions: currentSegment,
-                        width: 3.0
-                    }),
-                    attributes: {
-                        color: ColorGeometryInstanceAttribute.fromColor(currentColor)
-                    }
-                }))
-            }
+            pushSegment(currentSegment, currentColor)
 
             // Remove old trajectory primitives
             this.viewer.scene.primitives.remove(this.trajectoryPrimitive)
+            this.viewer.scene.primitives.remove(this.trajectoryHaloPrimitive)
 
             if (!this.showTrajectory) {
                 this.viewer.scene.requestRender()
                 return
             }
-            // Create a new primitive with the geometry instances
+            // Halo goes first (behind), main line on top
+            this.trajectoryHaloPrimitive = new Primitive({
+                geometryInstances: haloInstances,
+                appearance: new PolylineColorAppearance({ translucent: true })
+            })
             this.trajectoryPrimitive = new Primitive({
-                geometryInstances: geometryInstances,
+                geometryInstances: mainInstances,
                 appearance: new PolylineColorAppearance()
             })
 
+            this.viewer.scene.primitives.add(this.trajectoryHaloPrimitive)
             this.viewer.scene.primitives.add(this.trajectoryPrimitive)
             this.viewer.scene.primitives.raiseToTop(this.trajectoryPrimitive)
             this.viewer.scene.requestRender()

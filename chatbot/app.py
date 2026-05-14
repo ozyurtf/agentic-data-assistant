@@ -1,6 +1,7 @@
 from typing import Literal
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
+from langchain_anthropic import ChatAnthropic
 from langgraph.prebuilt import ToolNode
 from langchain.schema.runnable.config import RunnableConfig
 import chainlit as cl
@@ -215,16 +216,16 @@ async def extract_data(query: str) -> DataExtractionResult:
                 await step.stream_token("Web content available.\n")
                 
             prompt = PromptTemplate(
-                input_variables=["query", "web_content", "msg_context", "max_message_types"], 
+                input_variables=["query", "web_content", "msg_context", "max_message_types"],
                 template=template
             )
-            # Use the global model that's already configured
-            chain = prompt | model
+            # Plain-text extraction — use the un-bound model so Claude doesn't try to call tools
+            chain = prompt | extract_model
             result = chain.invoke(
                 {
-                    "query": query, 
+                    "query": query,
                     "web_content": web_content,
-                    "msg_context": msg_context, 
+                    "msg_context": msg_context,
                     "max_message_types": os.getenv("MAX_MESSAGE_TYPES", 3)
                 }
             )
@@ -994,7 +995,8 @@ async def detect_events(event_description: str) -> EventResult:
         
         col_map = cl.user_session.get("col_map", {})
         prompt = PromptTemplate(input_variables=["event_description", "col_map"], template=template)
-        chain = prompt | model
+        # Plain-text extraction — use the un-bound model
+        chain = prompt | extract_model
         result = chain.invoke({"event_description": event_description, "col_map": col_map})
         await step.stream_token(f"AI parsed event detection config:\n{result.content.strip()}\n")
         
@@ -1247,9 +1249,9 @@ async def visualize(query: str) -> VisualizationResult:
         """
 
         prompt = PromptTemplate(input_variables=["query", "keys", "chat_history"], template=template)
-        # Use the global model that's already configured
-        chain = prompt | model
-        
+        # Plain-text extraction — use the un-bound model
+        chain = prompt | extract_model
+
         # Get the last Human Message from chat history
         chat_history = cl.user_session.get("message_history")
 
@@ -1279,8 +1281,8 @@ async def visualize(query: str) -> VisualizationResult:
 
         Here is how the 100 rows sampled from the data looks like: {sampled_data}.
 
-        Write a matplotlib function in Python to visualize the data[key] so that I can execute it and get the plot.
-        Make sure that the plot is relevant to the user's query: {query}.
+        Write a matplotlib function in Python to visualize the data[key] so that the code can be executed properly to get the right plot.
+        Make sure that the code is runnable directly and it generates the plot that is asked in the user query: {query}.
         
         Only give the code, nothing else. Don't include ```python or ``` or anything else. 
         Don't explain the data.
@@ -1291,15 +1293,14 @@ async def visualize(query: str) -> VisualizationResult:
         that are already installed in the system.
         - Make sure that the code you generate can be run with 1 click without needing any modification/change.
         - `data` already exists, don't create a new one!
-        - Do not include any Python code in your response. 
-        - Don't remove a file/folder, create a new one, or do anything else that might affect the existing files/folders.
+        - Don't remove a file/folder, don't create a new one, or do anything else that might affect the existing files/folders.
         - Don't install a new library or uninstall the existing ones.
         """
         
         col_map = cl.user_session.get("col_map", {})
         prompt = PromptTemplate(input_variables=["query", "sampled_data", "key"], template=template)
-        # Use the global model that's already configured
-        chain = prompt | model
+        # Plain-text code generation — use the un-bound model
+        chain = prompt | extract_model
         result = chain.invoke({"query": query, "sampled_data": sampled_data, "key": key})
         code = result.content.strip()
         code = code.replace("plt.show()", "")  
@@ -1405,7 +1406,7 @@ async def quality_assurance_agent(state: MessagesState):
     4. Transforms the answer if improvements are needed
     5. Returns the validated/improved version
     """
-    async with cl.Step(name="Response is being checked for accuracy and clarity", type="run") as step:
+    async with cl.Step(name="Response is being evaluated", type="run") as step:
         messages = state["messages"]
         final_answer = messages[-1]
         
@@ -1457,6 +1458,7 @@ async def quality_assurance_agent(state: MessagesState):
         NEVER include both the original and improved version in your response.
         DO NOT include the original answer in the improved answer if you are improving it.
         DO NOT include any Python code for visualization in the answer. 
+        DO NOT include any emojis or icons in the final answer.
 
         COMMON ISSUES TO FIX:
         - Add missing context explanations
@@ -1517,8 +1519,23 @@ tools = [
     detect_events
 ]
 
-model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0, max_tokens=1000, streaming=True).bind_tools(tools)
-qa_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, max_tokens=1000, streaming=True)
+# LLM_PROVIDER env var selects backend: "anthropic" (default) or "openai"
+LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic").lower()
+
+if LLM_PROVIDER == "openai":
+    _base_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0, max_tokens=2000, streaming=True)
+    qa_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, max_tokens=2000, streaming=True)
+else:
+    _base_model = ChatAnthropic(model="claude-sonnet-4-6", temperature=0.0, max_tokens=2000, streaming=True)
+    qa_model = ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2, max_tokens=2000, streaming=True)
+
+# Tool-bound model: used ONLY in the agent loop where tool calls are expected
+model = _base_model.bind_tools(tools)
+
+# Plain-text model: used for extraction tasks where the LLM should return raw text/dict/code,
+# not call tools. Claude is strict about tool-binding — using `model` here causes empty
+# or malformed responses.
+extract_model = _base_model
 
 tool_node = ToolNode(tools=tools)
 
