@@ -197,8 +197,6 @@ The list of web pages that have the technical information that might be benefici
 - ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
 - Standard MAVLink common messages: `https://mavlink.io/en/messages/common.html`
 
-## External Data Awareness Evaluation
-
 ## Offline Evaluation
 - **Context score** (whether all the required data and information is available in the context)
 - **Correctnes score** with LLM as a judge (whether the answer semantically matches with the ground truth)
@@ -229,6 +227,8 @@ To track these metrics, there were many options such as:
 Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use **LangSmith**.
 
 ## Dashboard
+
+`To be announced`
 
 # Notes
 
