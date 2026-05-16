@@ -202,23 +202,23 @@ The list of web pages that have the technical information that might be benefici
 ## External Data Awareness Evaluation
 
 ## Offline Evaluation
-- Context score (whether all the required data and information is available in the context)
-- Correctnes score with LLM as a judge (whether the answer semantically matches with the ground truth)
-- Exact match score (for questions that require extracting specific data from the uploaded file)
-- Node selection (whether the right nodes are chosen for execution)
-- Tool selection (whether the right tools are chosen for execution)
-- C-DNF ("Correct data not found") score (sometimes the user asks a question, but the required data may not exist in the uploaded file. It is important for the system to detect this correclty, and answer that the required data was not found in the uploaded file instead of making assumptions).
-- Average task completion rate (out of all the user requests in a prompt, how many are completed successfully?)
-- Conciseness
+- **Context score** (whether all the required data and information is available in the context)
+- **Correctnes score** with LLM as a judge (whether the answer semantically matches with the ground truth)
+- **Exact match score** (for questions that require extracting specific data from the uploaded file)
+- **Node selection** (whether the right nodes are chosen for execution)
+- **Tool selection** (whether the right tools are chosen for execution)
+- **C-DNF** ("Correct data not found") score (sometimes the user asks a question, but the required data may not exist in the uploaded file. It is important for the system to detect this correclty, and answer that the required data was not found in the uploaded file instead of making assumptions).
+- **Average task completion rate** (out of all the user requests in a prompt, how many are completed successfully?)
+- **Conciseness**
 
 ## Online Evaluation
-- P50/P90/P99 latency
-- Total token usage
-- Node failure rate
-- Tool failure rate
-- Cache hit rate
-- Ratio of failed answers
-- User-reported feedback
+- **P50/P90/P99 latency**
+- **Total token usage**
+- **Node failure rate**
+- **Tool failure rate**
+- **Cache hit rate**
+- **Ratio of failed answers**
+- **User-reported feedback**
 
 ## Evaluation Platform and Dashboard
 To track these metrics, there were many options such as: 
@@ -228,7 +228,9 @@ To track these metrics, there were many options such as:
 - Anthropic evaluation platform
 - Manual evaluation with custom Python code and Weights & Biases
 
-Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use LangSmith.
+Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use **LangSmith**.
+
+## Dashboard
 
 # Notes
 
