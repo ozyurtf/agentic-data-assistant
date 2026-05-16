@@ -32,6 +32,59 @@
 <p align="center"><img src="images/data-extraction-tool.png" alt="" width="100%"></p>
 <p align="center"><img src="images/agents.png" alt="" width="100%"></p>
 
+# Evaluation 
+
+## Manual Data Collection
+- When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
+  - Queries that require information available in the uploaded file
+    1. Queries that require multi-step reasoning (category: `multi-step-reasoning`)
+    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
+    3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external-knowledge-usage`)
+    4. Prompts that requests multiple tasks to be completed (category: `multi`)
+
+  - Queries that require information not available in the uploaded file
+    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (category: `external-knowledge-awareness`)
+    2. Queries that are not related to this topic at all (category: `general`)
+    3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not-found`)
+
+The list of web pages that have the technical information that might be beneficial for the agents:
+- ArduPilot MAVLink dialect messages: `https://mavlink.io/en/messages/ardupilotmega.html`
+- ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
+- Standard MAVLink common messages: `https://mavlink.io/en/messages/common.html`
+
+## Offline Evaluation
+- **Context score** (whether all the required data and information is available in the context)
+- **Correctnes score** with LLM as a judge (whether the answer semantically matches with the ground truth)
+- **Exact match score** (for questions that require extracting specific data from the uploaded file)
+- **Node selection** (whether the right nodes are chosen for execution)
+- **Tool selection** (whether the right tools are chosen for execution)
+- **C-DNF** ("Correct data not found") score (sometimes the user asks a question, but the required data may not exist in the uploaded file. It is important for the system to detect this correclty, and answer that the required data was not found in the uploaded file instead of making assumptions).
+- **Average task completion rate** (out of all the user requests in a prompt, how many are completed successfully?)
+- **Conciseness**
+
+## Online Evaluation
+- **P50/P90/P99 latency**
+- **Total token usage**
+- **Node failure rate**
+- **Tool failure rate**
+- **Cache hit rate**
+- **Ratio of failed answers**
+- **User-reported feedback**
+
+## Evaluation Platform and Dashboard
+To track these metrics, there were many options such as: 
+
+- LangSmith
+- OpenAI evaluation platform 
+- Anthropic evaluation platform
+- Manual evaluation with custom Python code and Weights & Biases
+
+Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use **LangSmith**.
+
+## Dashboard
+
+`To be announced`
+
 # Running  
 
 Create a `files` folder inside `api`
@@ -176,59 +229,6 @@ docker-compose up -d
 - Chatbot at `http://your-public-ip:8000`
 - API docs at `http://your-public-ip:8001/docs`
 - Default login: `admin` / `password`
-
-# Evaluation 
-
-## Manual Data Collection
-- When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
-  - Queries that require information available in the uploaded file
-    1. Queries that require multi-step reasoning (category: `multi-step-reasoning`)
-    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
-    3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external-knowledge-usage`)
-    4. Prompts that requests multiple tasks to be completed (category: `multi`)
-
-  - Queries that require information not available in the uploaded file
-    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (category: `external-knowledge-awareness`)
-    2. Queries that are not related to this topic at all (category: `general`)
-    3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not-found`)
-
-The list of web pages that have the technical information that might be beneficial for the agents:
-- ArduPilot MAVLink dialect messages: `https://mavlink.io/en/messages/ardupilotmega.html`
-- ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
-- Standard MAVLink common messages: `https://mavlink.io/en/messages/common.html`
-
-## Offline Evaluation
-- **Context score** (whether all the required data and information is available in the context)
-- **Correctnes score** with LLM as a judge (whether the answer semantically matches with the ground truth)
-- **Exact match score** (for questions that require extracting specific data from the uploaded file)
-- **Node selection** (whether the right nodes are chosen for execution)
-- **Tool selection** (whether the right tools are chosen for execution)
-- **C-DNF** ("Correct data not found") score (sometimes the user asks a question, but the required data may not exist in the uploaded file. It is important for the system to detect this correclty, and answer that the required data was not found in the uploaded file instead of making assumptions).
-- **Average task completion rate** (out of all the user requests in a prompt, how many are completed successfully?)
-- **Conciseness**
-
-## Online Evaluation
-- **P50/P90/P99 latency**
-- **Total token usage**
-- **Node failure rate**
-- **Tool failure rate**
-- **Cache hit rate**
-- **Ratio of failed answers**
-- **User-reported feedback**
-
-## Evaluation Platform and Dashboard
-To track these metrics, there were many options such as: 
-
-- LangSmith
-- OpenAI evaluation platform 
-- Anthropic evaluation platform
-- Manual evaluation with custom Python code and Weights & Biases
-
-Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use **LangSmith**.
-
-## Dashboard
-
-`To be announced`
 
 # Notes
 
