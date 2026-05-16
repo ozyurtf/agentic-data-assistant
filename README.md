@@ -8,9 +8,9 @@
 - Session management <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Caching extracted data with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Web scraping <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Photorealistic 3D map<span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Sign-up and log-in mechanisms <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Web scraping <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Sign-up and log-in mechanisms with e-mail and password <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - AWS PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
@@ -181,21 +181,21 @@ docker-compose up -d
 
 ## Manual Data Collection
 - When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
-  A) Queries that require information available in the uploaded file
+  - Queries that require information available in the uploaded file
     1. Queries that require multi-step reasoning (category: `multi-step-reasoning`)
     2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
     3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external-knowledge-usage`)
     4. Prompts that requests multiple tasks to be completed (category: `multi`)
 
-  B) Queries that require information not available in the uploaded file
+  - Queries that require information not available in the uploaded file
     1. Queries that measure the system's awareness of external knowledge related to the uploaded file (category: `external-knowledge-awareness`)
     2. Queries that are not related to this topic at all (category: `general`)
     3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not-found`)
 
 The list of web pages that have the technical information that might be beneficial for the agents:
-- ArduPilot MAVLink dialect messages: https://mavlink.io/en/messages/ardupilotmega.html
-- ArduCopter onboard log messages: https://ardupilot.org/copter/docs/logmessages.html
-- Standard MAVLink common messages: https://mavlink.io/en/messages/common.html
+- ArduPilot MAVLink dialect messages: `https://mavlink.io/en/messages/ardupilotmega.html`
+- ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
+- Standard MAVLink common messages: `https://mavlink.io/en/messages/common.html`
 
 ## External Data Awareness Evaluation
 
@@ -249,4 +249,4 @@ update `allow_origins` in `api/main.py` so it includes the new origin(s).
 
 # References
 
-1) UAV Log Viewer: https://github.com/ArduPilot/UAVLogViewer
+1) UAV Log Viewer: `https://github.com/ArduPilot/UAVLogViewer`
