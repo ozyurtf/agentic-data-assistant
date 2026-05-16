@@ -74,7 +74,7 @@ The list of web pages that have the technical information that might be benefici
 - **Ratio of failed answers**
 - **User-reported feedback**
 
-## Evaluation Platform and Dashboard
+## Evaluation Platform 
 To track these metrics, there were many options such as: 
 
 - LangSmith
