@@ -23,6 +23,9 @@ import hashlib
 import json
 import time
 from models import *
+from agents import set_trace_processors
+from langsmith.integrations.openai_agents_sdk import OpenAIAgentsTracingProcessor
+
 matplotlib.use('Agg')
 
 load_dotenv()
@@ -33,6 +36,8 @@ if api_host and api_port:
     base_url = f"http://{api_host}:{api_port}"
 else:
     base_url = os.getenv("API_BASE_URL")
+
+set_trace_processors([OpenAIAgentsTracingProcessor()])
 
 def get_user_id():
     """Get user ID from Chainlit session"""

@@ -1,23 +1,25 @@
-**Note**: The original code used to build the UI is taken from [here](https://github.com/ArduPilot/UAVLogViewer), and I am implementing/integrating the features below on top of the UI:
+**Note**: The code used to build the UI can be seen in the `Reference` section at the bottom. And I am implementing/integrating the features below on top of it.
 
 # Features
 
-- Multi-agent system development and integration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Backend API development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Multi-agent system <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Multi-step reasoning <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Backend development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Session management <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Integration of different data analytics tools executable by LLMs with result interpretation <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Redis caching for extracted data <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Web scraping integration with Firecrawl <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Integrating photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Password hashing with argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Caching extracted data with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Web scraping <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Photorealistic 3D map<span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Sign-up and log-in mechanisms <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Integrating sign-up and log-in mechanisms <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Creating PostgreSQL database in AWS to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Creating S3 bucket in AWS to temporarily store the files uploaded by the user <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-
+- AWS PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- AWS S3 bucket integration to store the uploaded files <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Manual high-quality and diverse data collection to evaluate the system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Online and offline evaluation system with LangSmith <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 
 # Demo 
@@ -25,6 +27,7 @@
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
 <iframe width="1000" height="563" src="https://www.youtube.com/embed/yvr2dXFJIT0?si=10XPvvMSU-CAccHA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
 </div>
+
 
 # System
 
@@ -57,6 +60,7 @@ VUE_APP_GOOGLE_MAPS_KEY=<your_google_maps_key>
 VUE_APP_MAPTILER_KEY=<your_maptiler_key>       # Get from https://docs.maptiler.com/cloud/api/authentication-key/
 
 # OpenAI 
+LLM_PROVIDER=openai
 OPENAI_API_KEY=<your_openai_api_key>           # Get from https://platform.openai.com/api-keys
 
 # Firecrawl
@@ -121,7 +125,7 @@ To stop all services, you can run:
 docker-compose down
 ```
 
-## Run with Docker in AWS EC2
+## Run with Docker in AWS
 
 **1) Create EC2 Instance**
 - AMI: Ubuntu 24.04 LTS
@@ -175,8 +179,58 @@ docker-compose up -d
 - UI at `http://your-public-ip:8080`
 - Chatbot at `http://your-public-ip:8000`
 - API docs at `http://your-public-ip:8001/docs`
-
 - Default login: `admin` / `password`
+
+# Evaluation 
+
+## Manual Data Collection
+- When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
+  A) Queries that require information available in the uploaded file
+    1. Queries that require multi-step reasoning (category: `multi-step-reasoning`)
+    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
+    3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external-knowledge-usage`)
+    4. Prompts that requests multiple tasks to be completed (category: `multi`)
+
+  B) Queries that require information not available in the uploaded file
+    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (category: `external-knowledge-awareness`)
+    2. Queries that are not related to this topic at all (category: `general`)
+    3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not-found`)
+
+The list of web pages that have the technical information that might be beneficial for the agents:
+- ArduPilot MAVLink dialect messages: https://mavlink.io/en/messages/ardupilotmega.html
+- ArduCopter onboard log messages: https://ardupilot.org/copter/docs/logmessages.html
+- Standard MAVLink common messages: https://mavlink.io/en/messages/common.html
+
+## External Data Awareness Evaluation
+
+## Offline Evaluation
+- Context score (whether all the required data and information is available in the context)
+- Correctnes score with LLM as a judge (whether the answer semantically matches with the ground truth)
+- Exact match score (for questions that require extracting specific data from the uploaded file)
+- Node selection (whether the right nodes are chosen for execution)
+- Tool selection (whether the right tools are chosen for execution)
+- C-DNF ("Correct data not found") score (sometimes the user asks a question, but the required data may not exist in the uploaded file. It is important for the system to detect this correclty, and answer that the required data was not found in the uploaded file instead of making assumptions).
+- Average task completion rate (out of all the user requests in a prompt, how many are completed successfully?)
+- Conciseness
+
+## Online Evaluation
+- P50/P90/P99 latency
+- Total token usage
+- Node failure rate
+- Tool failure rate
+- Cache hit rate
+- Ratio of failed answers
+- User-reported feedback
+
+## Evaluation Platform and Dashboard
+To track these metrics, there were many options such as: 
+
+- LangSmith
+- OpenAI evaluation platform 
+- Anthropic evaluation platform
+- Manual evaluation with custom Python code and Weights & Biases
+
+Considering that I had already used LangChain and LangGraph during the process, and that LangSmith already provides many features that make it easy to evaluate the system and build dashboards, I decided to use LangSmith.
 
 # Notes
 
@@ -196,3 +250,7 @@ The application will automatically use your configured values throughout the ent
 
 If you run the frontend/chatbot on a different host or port (or deploy to a domain),
 update `allow_origins` in `api/main.py` so it includes the new origin(s). 
+
+# References
+
+1) UAV Log Viewer: https://github.com/ArduPilot/UAVLogViewer
