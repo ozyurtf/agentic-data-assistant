@@ -10,6 +10,7 @@
 - Caching extracted data with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Web scraping <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Data validation with Pydantic <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Sign-up and log-in mechanisms with e-mail and password <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
@@ -68,6 +69,7 @@ The list of web pages that have the technical information that might be benefici
 ## Online Evaluation
 - **P50/P90/P99 latency**
 - **Total token usage**
+- **Total cost**
 - **Node failure rate**
 - **Tool failure rate**
 - **Cache hit rate**
