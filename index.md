@@ -21,6 +21,7 @@
 - Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Streaming partial results back to the user as each tool completes to reduce latency <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
 # Demo 
 

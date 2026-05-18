@@ -21,6 +21,7 @@
 - Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Streaming partial results back to the user as each tool completes (to reduce latency) <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
 # Demo
 
@@ -38,15 +39,16 @@
 ## Manual Data Collection
 - When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
   - Queries that require information available in the uploaded file
-    1. Queries that require multi-step reasoning (category: `multi_step_reasoning`)
-    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
-    3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`)
-    4. Prompts that request multiple tasks to be completed (category: `multi_task`)
-
+    1. Questions that specifically ask which message type and columns to be extracted? (category: `data_extraction`) 
+    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`) 
+    3. Queries that require multi-step reasoning (category: `multi_step_reasoning`) 
+    4. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`) 
+    5. Prompts that request multiple tasks to be completed (category: `multi_task`)
+    
   - Queries that require information not available in the uploaded file
-    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (cateogry: `external_ardupilot_logs`, `external_mavlink_common` or `external_mavlink_dialect`)
-    2. Daily-life queries that are not related to this topic at all (category: `out_of_scope`)
-    3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not_found`)
+    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (cateogry: `external_knowledge_awareness`) 
+    2. Daily-life queries that are not related to this topic at all (category: `out_of_scope`) 
+    3. Queries that are relevant and technical but cannot be answered using the information available in the uploaded file (category: `not_found`) 
 
 The list of web pages that have the technical information that might be beneficial for the agents:
 - ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
