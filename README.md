@@ -1,5 +1,10 @@
 **Note**: The code used to build the UI can be seen in the `Reference` section at the bottom. And I am implementing/integrating the features below on top of it.
 
+
+# Demo
+
+<a href="https://www.youtube.com/watch?v=yvr2dXFJIT0"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
+
 # Features
 
 ### Agentic System
@@ -32,10 +37,6 @@
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Reverse proxy integration <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 - Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-
-# Demo
-
-<a href="https://www.youtube.com/watch?v=yvr2dXFJIT0"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
 
 # System
 

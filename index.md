@@ -1,5 +1,11 @@
 **Note**: The code used to build the UI can be seen in the `Reference` section at the bottom. And I am implementing/integrating the features below on top of it.
 
+# Demo 
+
+<div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
+<iframe width="1000" height="563" src="https://www.youtube.com/embed/yvr2dXFJIT0?si=10XPvvMSU-CAccHA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
+</div>
+
 # Features
 
 ### Agentic System
@@ -32,12 +38,6 @@
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Reverse proxy integration <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 - Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-
-# Demo 
-
-<div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
-<iframe width="1000" height="563" src="https://www.youtube.com/embed/yvr2dXFJIT0?si=10XPvvMSU-CAccHA" title="YouTube video player" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen style="max-width: 1000px; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);"></iframe>
-</div>
 
 # System
 
