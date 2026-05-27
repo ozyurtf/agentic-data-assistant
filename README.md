@@ -2,25 +2,36 @@
 
 # Features
 
+### Agentic System
 - Multi-agent system <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Multi-step reasoning <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Backend development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Session management <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Prompt caching <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
+
+### Backend Development 
+- Sign-up and log-in mechanisms with e-mail and password <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- JWT Authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Authorization <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Caching extracted data with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Web scraping <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Data validation with Pydantic <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Sign-up and log-in mechanisms with e-mail and password <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- JWT authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - AWS PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - AWS S3 bucket integration to store the uploaded files <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+
+### Frontend
+- Chatbot integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+
+### Evaluation
 - Manual high-quality and diverse data collection to evaluate the system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Online and offline evaluation system with LangSmith <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+
+### Deployment
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Deployment in AWS <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Reverse proxy integration <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
+- Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 # Demo
 
@@ -38,15 +49,16 @@
 ## Manual Data Collection
 - When preparing the dataset to evaluate the systems, I prepared different groups of datasets to be able to evaluate the system from different/diverse perspectives.
   - Queries that require information available in the uploaded file
-    1. Queries that require multi-step reasoning (category: `multi_step_reasoning`)
-    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`)
-    3. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`)
-    4. Prompts that request multiple tasks to be completed (category: `multi_task`)
-
+    1. Questions that specifically ask which message type and columns to be extracted? (category: `data_extraction`) 
+    2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`) 
+    3. Queries that require multi-step reasoning (category: `multi_step_reasoning`) 
+    4. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`) 
+    5. Prompts that request multiple tasks to be completed (category: `multi_task`)
+    
   - Queries that require information not available in the uploaded file
-    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (cateogry: `external_ardupilot_logs`, `external_mavlink_common` or `external_mavlink_dialect`)
-    2. Daily-life queries that are not related to this topic at all (category: `out_of_scope`)
-    3. Queries that are technical but cannot be answered using the information available in the uploaded file (category: `not_found`)
+    1. Queries that measure the system's awareness of external knowledge related to the uploaded file (cateogry: `external_knowledge_awareness`) 
+    2. Daily-life queries that are not related to this topic at all (category: `out_of_scope`) 
+    3. Queries that are relevant and technical but cannot be answered using the information available in the uploaded file (category: `not_found`) 
 
 The list of web pages that have the technical information that might be beneficial for the agents:
 - ArduCopter onboard log messages: `https://ardupilot.org/copter/docs/logmessages.html`
@@ -253,4 +265,4 @@ update `allow_origins` in `api/main.py` so it includes the new origin(s).
 
 # References
 
-1) UAV Log Viewer: `https://github.com/ArduPilot/UAVLogViewer`
+- UAV Log Viewer: `https://github.com/ArduPilot/UAVLogViewer`
