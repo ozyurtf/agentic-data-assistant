@@ -12,22 +12,20 @@ from dotenv import load_dotenv
 from firecrawl import Firecrawl
 from langchain_anthropic import ChatAnthropic
 from langchain_core.prompts import PromptTemplate
+from langchain_core.rate_limiters import InMemoryRateLimiter
 from langchain_core.tools import tool
 from langchain_openai import ChatOpenAI
-
 from models import *
 
 matplotlib.use("Agg")
 load_dotenv()
 
-# API base URL
 api_host = os.getenv("API_HOST")
 api_port = os.getenv("API_PORT")
 if api_host and api_port:
     base_url = f"http://{api_host}:{api_port}"
 else:
     base_url = os.getenv("API_BASE_URL")
-
 
 def get_user_id():
     """Get user ID from Chainlit session"""
@@ -51,21 +49,27 @@ def filter_data() -> dict:
         return {}
     return filtered_data
 
-
-# LLM provider setup (env var selects backend: anthropic default, or openai)
 LLM_PROVIDER = os.getenv("LLM_PROVIDER", "anthropic").lower()
 
-if LLM_PROVIDER == "openai":
-    _base_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0, max_tokens=2000, streaming=True)
-    qa_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.2, max_tokens=2000, streaming=True)
-else:
-    _base_model = ChatAnthropic(model="claude-sonnet-4-6", temperature=0.0, max_tokens=2000, streaming=True)
-    qa_model = ChatAnthropic(model="claude-sonnet-4-6", temperature=0.2, max_tokens=2000, streaming=True)
+anthropic_rate_limiter = InMemoryRateLimiter(
+    requests_per_second=0.10,
+    check_every_n_seconds=0.1,
+    max_bucket_size=1,
+)
 
-# Plain-text model: used for extraction tasks where the LLM should return raw text/dict/code,
-# not call tools. Claude is strict about tool-binding — using a tool-bound model here causes
-# empty or malformed responses.
-extract_model = _base_model
+if LLM_PROVIDER == "openai":
+    base_model = ChatOpenAI(model_name="gpt-4o-mini", temperature=0.0, max_tokens=20000, streaming=True)
+else:
+    base_model = ChatAnthropic(
+        model="claude-sonnet-4-6",
+        temperature=0.0,
+        max_tokens=2000,
+        streaming=True,
+        rate_limiter=anthropic_rate_limiter,
+        max_retries=10,
+    )
+
+extract_model = base_model
 
 @tool
 async def load_web_content(url: str) -> WebContentResult:
@@ -509,395 +513,6 @@ async def minimum(data_description: str) -> MinimumResult:
             message="Minimum value analysis completed successfully",
             minimum="\n".join(result_parts)
         ) 
-
-
-
-@tool
-async def detect_oscillations(data_description: str) -> OscillationResult:
-    """
-    Detect oscillatory patterns in the data, including periodic fluctuations and recurring cycles.
-    """
-    async with cl.Step(name="Starting oscillation detection process", type="tool") as step:
-        data = filter_data()
-        if not data:
-            step.name = "No data available for oscillation detection."
-            await step.update()
-            return OscillationResult(
-                message="No data available",
-                oscillations="No data available. Please extract data first."
-            )
-
-        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
-        
-        result_parts = []
-        
-        for msg_type, df in data.items():
-            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
-            
-            numeric_cols = df.select_dtypes(include=['number'])
-            if not numeric_cols.empty:
-                result_parts.append(f"Oscillation analysis for {msg_type}:")
-                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
-                
-                # Sort by timestamp if available
-                sorted_df = df.copy()
-                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
-                if timestamp_cols:
-                    sorted_df = df.sort_values(by=timestamp_cols[0])
-                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for oscillation analysis.\n")
-                
-                for col in numeric_cols.columns:
-                    await step.stream_token(f"Analyzing oscillations in {col}...\n")
-                    
-                    values = sorted_df[col].dropna()
-                    if len(values) < 6:  # Need minimum points for oscillation detection
-                        result_parts.append(f"  {col}: Insufficient data points for oscillation analysis")
-                        continue
-                    
-                    # Method 1: Detect direction changes (peaks and troughs)
-                    direction_changes = []
-                    directions = []
-                    
-                    for i in range(1, len(values)):
-                        if values.iloc[i] > values.iloc[i-1]:
-                            directions.append('up')
-                        elif values.iloc[i] < values.iloc[i-1]:
-                            directions.append('down')
-                        else:
-                            directions.append('stable')
-                    
-                    # Count direction changes
-                    changes = 0
-                    for i in range(1, len(directions)):
-                        if directions[i] != directions[i-1] and directions[i] != 'stable' and directions[i-1] != 'stable':
-                            changes += 1
-                            direction_changes.append(i)
-                    
-                    # Method 2: Calculate standard deviation and mean for variability
-                    std_dev = values.std()
-                    mean_val = values.mean()
-                    coefficient_of_variation = std_dev / mean_val if mean_val != 0 else 0
-                    
-                    # Method 3: Detect local maxima and minima
-                    peaks = []
-                    troughs = []
-                    
-                    for i in range(1, len(values) - 1):
-                        if values.iloc[i] > values.iloc[i-1] and values.iloc[i] > values.iloc[i+1]:
-                            peaks.append((values.index[i], values.iloc[i]))
-                        elif values.iloc[i] < values.iloc[i-1] and values.iloc[i] < values.iloc[i+1]:
-                            troughs.append((values.index[i], values.iloc[i]))
-                    
-                    # Method 4: Calculate approximate frequency and totals
-                    data_length = len(values)
-                    candidate_points = max(data_length - 2, 0)
-                    peaks_count = len(peaks)
-                    troughs_count = len(troughs)
-                    peaks_pct = (peaks_count / candidate_points * 100) if candidate_points else 0.0
-                    troughs_pct = (troughs_count / candidate_points * 100) if candidate_points else 0.0
-                    
-                    
-                    # Report findings
-                    result_parts.append(f"  {col} oscillation analysis:")
-                    result_parts.append(f"    Total samples: {data_length}")
-                    result_parts.append(f"    Direction changes: {changes} out of {len(directions)} transitions ({(changes/len(directions)*100 if len(directions) else 0):.1f}%)")
-                    result_parts.append(f"    Peaks found: {peaks_count} of {candidate_points} candidate points ({peaks_pct:.1f}%)")
-                    result_parts.append(f"    Troughs found: {troughs_count} of {candidate_points} candidate points ({troughs_pct:.1f}%)")
-                    result_parts.append(f"    Coefficient of variation: {coefficient_of_variation:.3f}")                    
-                    result_parts.append("")  # Space between columns
-                
-                result_parts.append("")  # Space between message types
-            else:
-                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
-                result_parts.append(f"No numeric data available in {msg_type} for oscillation analysis.")
-                result_parts.append("")
-        
-        await step.stream_token("Oscillation detection completed successfully.\n")
-        
-        step.name = "Oscillation detection process is done."
-        await step.update()
-        return OscillationResult(
-            message="Oscillation detection completed successfully",
-            oscillations="\n".join(result_parts)
-        )        
-
-@tool
-async def detect_sudden_changes(data_description: str) -> SuddenChangesResult:
-    """
-    Detect sudden changes in the data.
-    """
-    async with cl.Step(name="Starting change detection process", type="tool") as step:
-        data = filter_data()
-        if not data:
-            step.name = "No data available for sudden changes detection."
-            await step.update()
-            return SuddenChangesResult(
-                message="No data available",
-                sudden_changes="No data available. Please extract data first."
-            )
-
-        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
-        
-        result_parts = []
-        
-        for msg_type, df in data.items():
-            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
-            
-            numeric_cols = df.select_dtypes(include=['number'])
-            if not numeric_cols.empty:
-                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
-                
-                # Sort by timestamp if available
-                sorted_df = df.copy()
-                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
-                if timestamp_cols:
-                    sorted_df = df.sort_values(by=timestamp_cols[0])
-                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for change detection.\n")
-                
-                for col in numeric_cols.columns:
-                    await step.stream_token(f"Analyzing sudden changes in {col}...\n")
-                    
-                    # Get clean numeric values and calculate percentage changes
-                    values = sorted_df[col].dropna()
-                    if len(values) < 2:
-                        await step.stream_token(f"Insufficient data points in {col} for change detection.\n")
-                        continue
-                    
-                    pct_changes = values.pct_change().fillna(0)
-                    threshold = 0.5  # 50% change
-                    
-                    # Find sudden changes using consistent indexing
-                    sudden_changes_count = 0
-                    total_transitions = len(values) - 1
-                                        
-                    for i in range(1, len(values)):
-                        change_pct = pct_changes.iloc[i]
-                        
-                        if abs(change_pct) > threshold:
-                            sudden_changes_count += 1
-                            
-                            # Get indices for current and previous values
-                            current_idx = values.index[i]
-                            prev_idx = values.index[i-1]
-                            
-                            # Get the actual values
-                            current_value = values.iloc[i]
-                            prev_value = values.iloc[i-1]
-                            change_percentage = change_pct * 100
-                            
-                            # Get the full row for context
-                            change_row = sorted_df.loc[current_idx]
-                            
-                            result_parts.append(f"  Change: {change_percentage:.1f}% (from {prev_value} to {current_value}) in {col} column")
-                            
-                            # Include context from the row where change occurred
-                            for field, value in change_row.items():
-                                if field != col and pd.notna(value):
-                                    result_parts.append(f"    {field}: {value}")
-                            
-                            result_parts.append("")  # Add space between changes
-                    
-                    # Summary for this column
-                    if sudden_changes_count > 0:
-                        pct_sudden = (sudden_changes_count / total_transitions * 100) if total_transitions else 0
-                        result_parts.append(f"  Summary: {sudden_changes_count} sudden changes (>{threshold*100}%) out of {total_transitions} transitions ({pct_sudden:.1f}%) in {col} column")
-                        await step.stream_token(f"Found {sudden_changes_count} sudden changes in {col}.\n")
-                    else:
-                        result_parts.append(f"  No sudden changes detected in {col} (0 of {total_transitions} transitions) in {col} column")
-                        await step.stream_token(f"No sudden changes detected in {col} in {col} column.\n")
-                    
-                    result_parts.append("")  # Add space between columns
-                
-                result_parts.append("")  # Add space between message types
-            else:
-                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
-                result_parts.append(f"No numeric data available in {msg_type} for change detection.")
-                result_parts.append("")
-        
-        await step.stream_token("Sudden changes detection completed successfully.\n")
-        
-        step.name = "Sudden changes detection process is done."
-        await step.update()
-        return SuddenChangesResult(
-            message="Sudden changes detection completed successfully",
-            sudden_changes="\n".join(result_parts)
-        )
-
-@tool
-async def detect_outliers(data_description: str) -> OutlierResult:
-    """
-    Detect statistical outliers in the data using multiple detection methods.
-    Identifies data points that deviate significantly from normal patterns.
-    """
-    async with cl.Step(name="Starting outlier detection process", type="tool") as step: 
-        data = filter_data()
-        if not data:
-            step.name = "No data available for outlier detection."
-            await step.update()
-            return OutlierResult(
-                message="No data available",
-                outliers="No data available. Please extract data first."
-            )
-
-        await step.stream_token(f"Found {len(data)} message types in the extracted data.\n")
-        
-        result_parts = []
-        
-        for msg_type, df in data.items():
-            await step.stream_token(f"Processing {msg_type} with {len(df)} rows...\n")
-            
-            numeric_cols = df.select_dtypes(include=['number'])
-            if not numeric_cols.empty:
-                result_parts.append(f"Outlier analysis for {msg_type}:")
-                await step.stream_token(f"Found {len(numeric_cols.columns)} numeric fields in {msg_type}.\n")
-                
-                # Sort by timestamp if available for better context
-                sorted_df = df.copy()
-                timestamp_cols = [col for col in df.columns if 'time' in col.lower() or 'date' in col.lower()]
-                if timestamp_cols:
-                    sorted_df = df.sort_values(by=timestamp_cols[0])
-                    await step.stream_token(f"Sorted data by {timestamp_cols[0]} for outlier context.\n")
-                
-                for col in numeric_cols.columns:
-                    await step.stream_token(f"Analyzing outliers in {col}...\n")
-                    
-                    values = sorted_df[col].dropna()
-                    if len(values) < 4:  # Need minimum points for outlier detection
-                        result_parts.append(f"  {col}: Insufficient data points for outlier analysis")
-                        continue
-                    
-                    outliers_found = {}
-                    all_outlier_indices = set()
-                    
-                    # Method 1: Interquartile Range (IQR) Method
-                    Q1 = values.quantile(0.25)
-                    Q3 = values.quantile(0.75)
-                    IQR = Q3 - Q1
-                    lower_bound = Q1 - 1.5 * IQR
-                    upper_bound = Q3 + 1.5 * IQR
-                    
-                    iqr_outliers = values[(values < lower_bound) | (values > upper_bound)]
-                    if len(iqr_outliers) > 0:
-                        outliers_found['IQR'] = iqr_outliers
-                        all_outlier_indices.update(iqr_outliers.index)
-                        await step.stream_token(f"IQR method found {len(iqr_outliers)} outliers in {col}.\n")
-                    
-                    # Method 2: Z-Score Method (values beyond 2.5 standard deviations)
-                    if len(values) >= 100:  # Z-score needs reasonable sample size
-                        mean_val = values.mean()
-                        std_val = values.std()
-                        
-                        if std_val > 0:  # Avoid division by zero
-                            z_scores = abs((values - mean_val) / std_val)
-                            z_outliers = values[z_scores > 2.5]  # 2.5 standard deviations
-                            
-                            if len(z_outliers) > 0:
-                                outliers_found['Z-Score'] = z_outliers
-                                all_outlier_indices.update(z_outliers.index)
-                                await step.stream_token(f"Z-Score method found {len(z_outliers)} outliers in {col}.\n")
-                    
-                    # Method 3: Modified Z-Score using Median Absolute Deviation (MAD)
-                    median_val = values.median()
-                    mad = (values - median_val).abs().median()
-                    
-                    if mad > 0:  # Avoid division by zero
-                        modified_z_scores = 0.6745 * (values - median_val) / mad
-                        mad_outliers = values[abs(modified_z_scores) > 3.5]  # 3.5 MAD threshold
-                        
-                        if len(mad_outliers) > 0:
-                            outliers_found['MAD'] = mad_outliers
-                            all_outlier_indices.update(mad_outliers.index)
-                            await step.stream_token(f"MAD method found {len(mad_outliers)} outliers in {col}.\n")
-                    
-                    # Method 4: Percentile Method (beyond 1st and 99th percentiles)
-                    p1 = values.quantile(0.01)
-                    p99 = values.quantile(0.99)
-                    percentile_outliers = values[(values < p1) | (values > p99)]
-                    
-                    if len(percentile_outliers) > 0:
-                        outliers_found['Percentile'] = percentile_outliers
-                        all_outlier_indices.update(percentile_outliers.index)
-                        await step.stream_token(f"Percentile method found {len(percentile_outliers)} outliers in {col}.\n")
-                    
-                    # Report findings
-                    total_points = len(values)
-                    outliers_total = len(all_outlier_indices)
-                    outliers_pct = (outliers_total / total_points * 100) if total_points else 0
-                    result_parts.append(f"  {col} outlier analysis:")
-                    result_parts.append(f"    Total samples: {total_points}")
-                    result_parts.append(f"    Data range: {values.min():.3f} to {values.max():.3f}")
-                    result_parts.append(f"    Mean: {values.mean():.3f}, Median: {values.median():.3f}")
-                    result_parts.append(f"    Standard deviation: {values.std():.3f}")
-                    result_parts.append(f"    Total unique outliers found: {outliers_total} of {total_points} ({outliers_pct:.1f}%)")
-                    
-                    if outliers_found:
-                        result_parts.append(f"    OUTLIERS DETECTED:")
-                        
-                        # Show method-specific results
-                        for method, outlier_series in outliers_found.items():
-                            result_parts.append(f"      {method} method: {len(outlier_series)} outliers")
-                            
-                            # Show top outliers with context
-                            top_outliers = outlier_series.nlargest(5) if len(outlier_series.nlargest(5)) > 0 else outlier_series
-                            bottom_outliers = outlier_series.nsmallest(5) if len(outlier_series.nsmallest(5)) > 0 else outlier_series
-                            
-                            extreme_outliers = set(top_outliers.index).union(set(bottom_outliers.index))
-                            
-                            for idx in list(extreme_outliers):  
-                                outlier_row = sorted_df.loc[idx]
-                                outlier_value = outlier_row[col]
-                                
-                                result_parts.append(f"        Top outlier values: {outlier_value:.3f}")
-                                
-                                # Add context from the row
-                                for field, value in outlier_row.items():
-                                    if field != col:  # Don't repeat the outlier value
-                                        result_parts.append(f"          {field}: {value} in {col} column")
-                                result_parts.append("")  # Space between outliers
-                        
-                        # Consensus outliers (found by multiple methods)
-                        method_counts = {}
-                        for idx in all_outlier_indices:
-                            count = sum(1 for method_outliers in outliers_found.values() 
-                                       if idx in method_outliers.index)
-                            if count > 1:
-                                method_counts[idx] = count
-                        
-                        if method_counts:
-                            result_parts.append(f"    CONSENSUS OUTLIERS (detected by multiple methods):")
-                            for idx, count in sorted(method_counts.items(), key=lambda x: x[1], reverse=True)[:10]:
-                                outlier_row = sorted_df.loc[idx]
-                                result_parts.append(f"      Value {outlier_row[col]:.3f} detected by {count} methods in {col} column")
-                                
-                                # Add timestamp context if available
-                                if timestamp_cols:
-                                    time_val = outlier_row[timestamp_cols[0]]
-                                    result_parts.append(f"        Time: {time_val} in {col} column")
-                        
-                        # Statistical impact
-                        outlier_percentage = outliers_pct
-                        result_parts.append(f"    Impact: {outlier_percentage:.1f}% of data points are outliers in {col} column")
-                                         
-                    else:
-                        result_parts.append(f"    NO OUTLIERS DETECTED - Data appears normally distributed in {col} column")
-                        await step.stream_token(f"No outliers detected in {col} in {col} column.\n")
-                    
-                    result_parts.append("")  # Space between columns
-                
-                result_parts.append("")  # Space between message types
-            else:
-                await step.stream_token(f"No numeric fields found in {msg_type}.\n")
-                result_parts.append(f"No numeric data available in {msg_type} for outlier analysis.")
-                result_parts.append("")
-        
-        await step.stream_token("Outlier detection completed successfully.\n")
-        
-        step.name = "Outlier detection process is done."
-        await step.update()
-        return OutlierResult(
-            message="Outlier detection completed successfully",
-            outliers="\n".join(result_parts)
-        )        
 
 @tool
 async def detect_events(event_description: str) -> EventResult:

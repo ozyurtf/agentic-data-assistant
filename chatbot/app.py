@@ -14,7 +14,6 @@ from fastapi import Request, Response
 from langchain.schema.runnable.config import RunnableConfig
 from langchain_core.messages import HumanMessage, AIMessage
 
-# Optional tracing — only set up if the deps are installed
 try:
     from agents import set_trace_processors
     from langsmith.integrations.openai_agents_sdk import OpenAIAgentsTracingProcessor
@@ -63,18 +62,28 @@ async def on_message(msg: cl.Message):
     cb = cl.LangchainCallbackHandler()
     final_answer = cl.Message(content="")
 
-    qa_content = ""
+    final_content = ""
     async for message, metadata in graph.astream(
         {"messages": message_history},
         stream_mode="messages",
         config=RunnableConfig(callbacks=[cb], **config),
     ):
-        # Stream the final answer from the QA node (now the last node)
-        if metadata.get("langgraph_node") == "qa" and message.content:
-            qa_content = message.content
+        # Stream the final answer from the agent node (last call, no tool_calls)
+        if (
+            metadata.get("langgraph_node") == "agent"
+            and message.content
+            and not getattr(message, "tool_calls", None)
+            and not getattr(message, "tool_call_chunks", None)
+        ):
+            content = message.content
+            if isinstance(content, list):
+                content = "".join(
+                    b.get("text", "") for b in content if isinstance(b, dict)
+                )
+            final_content += content
 
-    if qa_content:
-        for char in qa_content:
+    if final_content:
+        for char in final_content:
             await final_answer.stream_token(char)
             await asyncio.sleep(0.01)
 

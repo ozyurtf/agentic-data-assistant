@@ -297,7 +297,8 @@ async def get_file_schema(request: Request, file_id: str, user_id: str = Header(
                 break
             msg_type = msg.get_type()
             msg_info[msg_type].update(msg.to_dict().keys())
-        
+            msg_info[msg_type].add("_timestamp")
+
         schema = {k: sorted(v) for k, v in msg_info.items()}
         
         schema_response = SchemaResponse(
@@ -369,11 +370,13 @@ async def process_file(
                     msg = mlog.recv_match(type=rem_msg_types)
                     if msg is None:
                         break
-                    
+
                     total_messages_read += 1
                     msg_type = msg.get_type()
                     if msg_type in validated_col_map:
-                        data[msg_type].append(msg.to_dict())
+                        row = msg.to_dict()
+                        row["_timestamp"] = getattr(msg, "_timestamp", None)
+                        data[msg_type].append(row)
                 
                 logger.info(f"Processed {total_messages_read} total messages")
                 
