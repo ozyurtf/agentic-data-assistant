@@ -12,27 +12,33 @@ module.exports = {
     assetsPublicPath: '/',
     proxyTable: {
     "/upload/*":{
-        target: `http://api:${process.env.API_PORT || '8001'}/upload`,
+        target: `http://${process.env.API_HOST || 'localhost'}:${process.env.API_PORT || '8001'}/upload`,
         secure:"false",
         changeOrigin: true
     },
     "/eniro/*":{
-        target: `http://api:${process.env.API_PORT || '8001'}/eniro`,
+        target: `http://${process.env.API_HOST || 'localhost'}:${process.env.API_PORT || '8001'}/eniro`,
         secure:"false",
         changeOrigin: true
     },
       "/uploaded/*":{
-        target: `http://api:${process.env.API_PORT || '8001'}/uploaded`,
+        target: `http://${process.env.API_HOST || 'localhost'}:${process.env.API_PORT || '8001'}/uploaded`,
         secure:"false",
         changeOrigin: true
       },
+      "/api":{
+        target: `http://${process.env.API_HOST || 'localhost'}:${process.env.API_PORT || '8001'}`,
+        secure: false,
+        changeOrigin: true
+      },
       "/chatbot":{
-        target: `http://chatbot:${process.env.CHATBOT_PORT || '8000'}`,
-        secure:false,
+        target: `http://${process.env.CHATBOT_HOST || 'localhost'}:${process.env.CHATBOT_PORT || '8000'}`,
+        secure: false,
         pathRewrite: {
           '^/chatbot': ''
         },
-        changeOrigin: true
+        changeOrigin: true,
+        ws: true
       },
     },
 

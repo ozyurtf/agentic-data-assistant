@@ -19,6 +19,16 @@
             <img :src="require('../assets/GitHub-Mark-64px.png').default"/>
             </a>
             <a href="/">Agentic Data Assistant<i></i></a><a class="github" href="https://github.com/ozyurtf/agentic-data-assistant"><img :src="require('../assets/wiki.svg').default"/></a></h1>
+
+        <div v-if="state.auth.loading" class="auth-loading">Checking session...</div>
+
+        <AuthPanel
+            v-else-if="!state.auth.isAuthenticated"
+            class="auth-gate"
+            @authenticated="onAuthenticated"
+        />
+
+        <template v-else>
         <!-- TABHOLDER -->
         <i class="fa fa-bars fa-2x toggle-btn" v-b-toggle.menucontent></i>
         <b-collapse class="menu-content collapse out" id="menucontent" visible>
@@ -36,6 +46,10 @@
                 <!-- more -->
                 <a :class="selected ==='other' ? 'selected' : ''" @click="selected='other'" v-if="state.processDone">
                     <i class="fas fa-ellipsis-v"></i>
+                </a>
+                <!-- Log Out -->
+                <a class="logout-tab" @click="logout" title="Sign out">
+                    <i class="fas fa-sign-out-alt"></i>Log Out
                 </a>
             </div>
         </b-collapse>
@@ -148,6 +162,7 @@
                 </div>
             </b-collapse>
         </div>
+        </template>
     </div>
     </div>
 </template>
@@ -157,7 +172,8 @@ import Dropzone from './SideBarFileManager.vue'
 import MessageMenu from './SideBarMessageMenu.vue'
 import {store} from './Globals.js'
 import PlotSetup from './PlotSetup.vue'
-import { CHATBOT_URL } from '@/config.js'
+import AuthPanel from './AuthPanel.vue'
+import { CHATBOT_URL, API_BASE_URL } from '@/config.js'
         
 export default {
     name: 'sidebar',
@@ -178,6 +194,47 @@ export default {
     methods: {
         setSelected (selected) {
             this.selected = selected
+        },
+
+        async refreshAuthState () {
+            try {
+                const response = await fetch(`${API_BASE_URL}/api/me`, {
+                    credentials: 'include'
+                })
+                if (response.ok) {
+                    const data = await response.json()
+                    this.state.auth.isAuthenticated = true
+                    this.state.auth.userId = data.user_id
+                } else {
+                    this.state.auth.isAuthenticated = false
+                    this.state.auth.userId = null
+                }
+            } catch (err) {
+                this.state.auth.isAuthenticated = false
+                this.state.auth.userId = null
+            } finally {
+                this.state.auth.loading = false
+            }
+        },
+
+        onAuthenticated (userId) {
+            this.state.auth.isAuthenticated = true
+            this.state.auth.userId = userId
+            this.state.auth.loading = false
+        },
+
+        async logout () {
+            try {
+                await fetch(`${API_BASE_URL}/api/logout`, {
+                    method: 'POST',
+                    credentials: 'include'
+                })
+            } catch (err) {
+                /* ignore network errors on logout */
+            }
+            this.state.auth.isAuthenticated = false
+            this.state.auth.userId = null
+            window.location.reload()
         },
 
         startCapture (displayMediaOptions) {
@@ -245,13 +302,14 @@ export default {
     },
     created () {
         this.$eventHub.$on('set-selected', this.setSelected)
+        this.refreshAuthState()
     },
     watch: {
         blob () {
             this.downloadURL = URL.createObjectURL(this.blob)
         }
     },
-    components: {PlotSetup, MessageMenu, Dropzone}
+    components: {PlotSetup, MessageMenu, Dropzone, AuthPanel}
 }
 </script>
 <style scoped>
@@ -307,8 +365,8 @@ export default {
     transition: background-color 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
 }
 .sidebar-close-btn:hover {
-    background-color: rgba(255, 80, 80, 0.85);
-    border-color: rgba(255, 80, 80, 1);
+    background-color: hsl(340 92% 52% / 1);
+    border-color: hsl(340 92% 52% / 1);
     transform: rotate(90deg);
 }
 .sidebar-close-btn:focus {
@@ -317,11 +375,31 @@ export default {
 .chat-container {
     height: calc(100vh - 120px); /* Adjust 200px based on your header height */
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
 }
 
 .chat-iframe {
     height: 100%;
     border: none;
+    flex: 1;
+}
+
+.auth-loading {
+    padding: 24px 16px;
+    color: #9aa3b2;
+    text-align: center;
+    font-size: 13px;
+    letter-spacing: 0.3px;
+}
+
+.auth-gate {
+    flex: 1;
+    overflow: auto;
+}
+
+.logout-tab {
+    cursor: pointer;
 }
 span.buildinfo {
     font-size: 70%;
@@ -459,17 +537,32 @@ a.centered-section {
     /* SCROLLBAR */
 
     ::-webkit-scrollbar {
-        width: 12px;
-        background-color: #202020;
+        width: 6px;
+        height: 6px;
+        background-color: transparent;
+    }
+
+    ::-webkit-scrollbar-track {
+        background-color: transparent;
     }
 
     ::-webkit-scrollbar-thumb {
-        border-radius: 5px;
-        box-shadow: inset 0 0 6px rgba(62, 62, 62, 0.859);
-        -webkit-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
-        -moz-box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.1);
-        background: rgb(133, 128, 132);
-        background: linear-gradient(0deg, rgb(203, 203, 203) 51%, rgb(203, 203, 203) 100%);
+        border-radius: 3px;
+        background-color: rgba(255, 255, 255, 0.12);
+        transition: background-color 0.2s ease;
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background-color: rgba(255, 255, 255, 0.24);
+    }
+
+    ::-webkit-scrollbar-corner {
+        background-color: transparent;
+    }
+
+    * {
+        scrollbar-width: thin;
+        scrollbar-color: rgba(255, 255, 255, 0.12) transparent;
     }
 
     .custom-control-inline {
@@ -536,11 +629,11 @@ a.centered-section {
     }
 
     .tabholder a:hover {
-        box-shadow: 0px 0px 12px 0px rgba(125,125,125,0.55);
-        -webkit-transition: all 1s ease;
-        -moz-transition: all 1s ease;
-        -o-transition: all 1s ease;
-        transition: all 1s ease;
+        background-color: hsl(340 92% 52% / 1);
+        border-color: hsl(340 92% 52% / 1);
+        color: #ffffff;
+        box-shadow: 0 0 12px hsl(340 92% 52% / 0.4);
+        transition: background-color 0.2s ease, border-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     }
 
     /* LABELS */

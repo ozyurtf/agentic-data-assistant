@@ -12,9 +12,6 @@
             <p>Drop *.tlog or *.bin file here or click to browse</p>
             <input @change="onChange" id="choosefile" style="opacity: 0;" type="file">
         </div>
-        <div class="login-warning" v-if="file==null && uploadpercentage===-1 && !sampleLoaded">
-            <i class="fas fa-info-circle"></i> Please log in to the Chatbot tab before uploading a file.
-        </div>
         <!--<b-form-checkbox @change="uploadFile()" class="uploadCheckbox" v-if="file!=null && !uploadStarted"> Upload
         </b-form-checkbox>-->
         <VProgress v-bind:complete="transferMessage"

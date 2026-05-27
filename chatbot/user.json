@@ -1,4 +1,6 @@
-[{
-  "user_id": "admin",
-  "password_hash": "5e884898da28047151d0e56f8dc6292773603d0d6aabbdd62a11ef721d1542d8"
-}]
+[
+  {
+    "user_id": "admin",
+    "password_hash": "$argon2id$v=19$m=65536,t=3,p=4$j8D1lKl4LmkjNE75yiURPQ$EvibpfbJk+riJwJM/Ik6oy7fG51hWwNEprC2Cjnd0YM"
+  }
+]

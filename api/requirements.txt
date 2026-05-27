@@ -17,3 +17,7 @@ typing-extensions>=4.14.1
 
 # Form parsing for FastAPI file uploads
 python-multipart>=0.0.20
+
+# Auth: password hashing + JWT
+argon2-cffi>=25.1.0
+PyJWT>=2.9.0

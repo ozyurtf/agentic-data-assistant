@@ -25,3 +25,9 @@ fastapi>=0.116.1
 
 # Type hints
 typing-extensions>=4.14.1
+
+# Argon2
+argon2-cffi>=25.1.0
+
+# JWT
+PyJWT>=2.9.0

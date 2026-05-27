@@ -12,18 +12,18 @@
 - Prompt caching <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 
 ### Backend Development 
-- Sign-up and log-in mechanisms with e-mail and password <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Password hashing with Argon2 <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- JWT Authentication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Authorization <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Password hashing with Argon2id <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- JWT authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Role based access control <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Caching extracted data with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Web scraping <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- User session <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Caching extracted data and data schema with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Data validation with Pydantic <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- AWS PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- AWS-hosted PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - AWS S3 bucket integration to store the uploaded files <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
 ### Frontend
+- Sign-up and log-in mechanisms integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Chatbot integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
@@ -158,14 +158,19 @@ REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=<enter_a_password_for_redis>
 
-VUE_APP_API_BASE_URL=http://localhost:8001
-VUE_APP_CHATBOT_URL=http://localhost:8000
+# Auth
+JWT_SECRET=<a_long_random_string>               # Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+JWT_TTL_SECONDS=604800                          # JWT validity window, in seconds (default: 7 days)
+AUTH_COOKIE_SECURE=false                        # Set to true in production (requires HTTPS)
+# AUTH_COOKIE_DOMAIN=.myapp.com                 # Optional: set for production cross-subdomain cookies
+# AUTH_COOKIE_SAMESITE=lax                      # lax (default) for same-origin dev; none + secure=true for cross-site iframes
 
-# Note: 
-# If you change the API_HOST, API_PORT, CHATBOT_HOST, or CHATBOT_PORT,
-# you should reflect these changes in VUE_APP_API_BASE_URL and VUE_APP_CHATBOT_URL as well:
-# VUE_APP_API_BASE_URL=http://API_HOST:API_PORT
-# VUE_APP_CHATBOT_URL=http://CHATBOT_HOST:CHATBOT_PORT
+# Note:
+# In dev, the Vue dev server proxies /api/* to FastAPI and /chatbot to Chainlit,
+# so the frontend uses same-origin requests and cookies work natively. If you
+# need to point the browser at a different host (e.g., production build), set:
+# VUE_APP_API_BASE_URL=http://your-api-host:port
+# VUE_APP_CHATBOT_URL=http://your-chatbot-host:port
 ```
 
 ## Run with Docker Locally

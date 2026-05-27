@@ -3,10 +3,11 @@
 # that wires Chainlit's UI handlers to the compiled graph.
 
 import asyncio
-import hashlib
-import json
+import os
+from typing import Dict
 
 import chainlit as cl
+import jwt
 import matplotlib
 import matplotlib.pyplot as plt
 from dotenv import load_dotenv
@@ -26,22 +27,40 @@ from core.graph import graph
 matplotlib.use("Agg")
 load_dotenv()
 
-
-with open("user.json", "r") as f:
-    users = json.load(f)
-
-user_map = {user["user_id"]: user for user in users}
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-in-prod-please")
+JWT_ALG = "HS256"
+COOKIE_NAME = "auth_token"
 
 
-@cl.password_auth_callback
-def auth_callback(username: str, password: str):
-    user = user_map.get(username)
-    if user and hashlib.sha256(password.encode()).hexdigest() == user["password_hash"]:
-        return cl.User(
-            identifier=username,
-            metadata={"role": "admin", "provider": "credentials"},
-        )
-    return None
+def extract_jwt(headers: Dict[str, str]) -> str:
+    headers_ci = {k.lower(): v for k, v in headers.items()}
+    auth = headers_ci.get("authorization", "")
+    if auth.lower().startswith("bearer "):
+        return auth.split(" ", 1)[1]
+    cookie_header = headers_ci.get("cookie", "")
+    for piece in cookie_header.split(";"):
+        name, _, value = piece.strip().partition("=")
+        if name == COOKIE_NAME:
+            return value
+    return ""
+
+
+@cl.header_auth_callback
+def auth_callback(headers: Dict[str, str]):
+    token = extract_jwt(headers)
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALG])
+    except jwt.PyJWTError:
+        return None
+    user_id = payload.get("sub")
+    if not user_id:
+        return None
+    return cl.User(
+        identifier=user_id,
+        metadata={"provider": "jwt"},
+    )
 
 
 @cl.on_chat_start

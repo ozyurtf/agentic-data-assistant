@@ -62,6 +62,11 @@ export const store = {
         '#9467BD',
         '#8C564B'],
     radioMode: '2',
+    auth: {
+        loading: true,
+        isAuthenticated: false,
+        userId: null
+    },
     /* global _COMMIT_ */
     commit: _COMMIT_.slice(0, 6),
     /* global _BUILDDATE_ */

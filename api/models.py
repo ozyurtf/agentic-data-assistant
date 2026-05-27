@@ -181,3 +181,15 @@ class ValidationError(BaseModel):
     field: str = Field(..., description="Field that failed validation")
     message: str = Field(..., description="Validation error message")
     invalid_value: Optional[Any] = Field(None, description="The invalid value that was provided")
+
+class SignupRequest(BaseModel):
+    user_id: str = Field(..., description="Identifier (email or username) for the new account")
+    password: str = Field(..., description="Plain-text password; hashed with Argon2id server-side")
+
+class LoginRequest(BaseModel):
+    user_id: str = Field(..., description="Identifier the user signed up with")
+    password: str = Field(..., description="Plain-text password to verify against the stored Argon2 hash")
+
+class AuthResponse(BaseModel):
+    user_id: str = Field(..., description="Identifier of the authenticated user")
+    token: str = Field(..., description="JWT issued on successful signup or login")

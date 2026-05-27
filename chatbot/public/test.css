@@ -6,6 +6,16 @@ a[href*='https://github.com/Chainlit/chainlit'] {
 display: none !important;
 }
 
+/* Hide Chainlit's built-in user menu / logout — auth is handled by Vue + JWT. */
+button[aria-label="User menu"],
+button[aria-label="user-menu"],
+[data-testid="user-menu"],
+[class*="UserMenu"],
+[class*="HeaderUserMenu"],
+[class*="HeaderUserButton"] {
+    display: none !important;
+}
+
 /* Reduce font sizes throughout the chatbot interface */
 .cl-message {
     font-size: 0.9rem !important;

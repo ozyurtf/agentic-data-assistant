@@ -1,7 +1,7 @@
 from pathlib import Path
 from models import *
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Header, Request, Response, Cookie
 from dotenv import load_dotenv
 from pymavlink import mavutil
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -15,10 +15,19 @@ from typing import List, Dict, Any, Optional
 import os
 from datetime import datetime
 
+from auth import (
+    JWT_TTL_SECONDS,
+    add_user,
+    find_user,
+    issue_jwt,
+    verify_jwt,
+    verify_password,
+)
+
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
 def get_user_id(request: Request):
     return request.headers.get("user-id", request.client.host)
@@ -195,6 +204,89 @@ def clean_and_remove_empty_columns(data_list: List[Dict[str, Any]]) -> List[Dict
         cleaned_data.append(cleaned_row)
     
     return cleaned_data    
+
+COOKIE_NAME = "auth_token"
+COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN")
+COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
+COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        max_age=JWT_TTL_SECONDS,
+        domain=COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        domain=COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+def current_user_from_request(
+    request: Request,
+    auth_token: Optional[str] = None,
+) -> Optional[str]:
+    token = auth_token or request.cookies.get(COOKIE_NAME)
+    if not token:
+        header = request.headers.get("authorization", "")
+        if header.lower().startswith("bearer "):
+            token = header.split(" ", 1)[1]
+    payload = verify_jwt(token) if token else None
+    return payload.get("sub") if payload else None
+
+
+@app.post("/api/signup", response_model=AuthResponse, status_code=201)
+@limiter.limit("10/hour")
+async def signup(request: Request, body: SignupRequest, response: Response):
+    user_id = body.user_id.strip()
+    password = body.password
+    if not user_id or not password:
+        raise HTTPException(status_code=400, detail="user_id and password are required")
+    try:
+        add_user(user_id, password)
+    except ValueError as e:
+        raise HTTPException(status_code=409, detail=str(e))
+    token = issue_jwt(user_id)
+    set_auth_cookie(response, token)
+    return AuthResponse(user_id=user_id, token=token)
+
+
+@app.post("/api/login", response_model=AuthResponse)
+@limiter.limit("20/minute")
+async def login(request: Request, body: LoginRequest, response: Response):
+    user = find_user(body.user_id)
+    if not user or not verify_password(user.get("password_hash", ""), body.password):
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = issue_jwt(body.user_id)
+    set_auth_cookie(response, token)
+    return AuthResponse(user_id=body.user_id, token=token)
+
+
+@app.post("/api/logout")
+@limiter.limit("100/minute")
+async def logout(request: Request, response: Response):
+    clear_auth_cookie(response)
+    return {"ok": True}
+
+
+@app.get("/api/me")
+@limiter.limit("100/minute")
+async def me(request: Request, auth_token: Optional[str] = Cookie(default=None, alias=COOKIE_NAME)):
+    user_id = current_user_from_request(request, auth_token)
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    return {"user_id": user_id}
+
 
 @app.get("/api/current-user", response_model=UserResponse, description="Get the current user ID from the chatbot session")
 async def get_current_user(request: Request):
