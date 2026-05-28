@@ -28,7 +28,6 @@
 import VProgress from './SideBarFileManagerProgressBar.vue'
 import Worker from '../tools/parsers/parser.worker.js'
 import { store } from './Globals'
-import { v4 as uuidv4 } from 'uuid'
 
 import { MAVLink20Processor as MAVLink } from '../libs/mavlink'
 
@@ -95,21 +94,20 @@ export default {
         // Added
         async sendFileToChatbot (file) {
             try {
-                const fileId = uuidv4()
                 const userId = 'admin'
                 const formData = new FormData()
                 formData.append('file', file)
                 const API_BASE_URL = process.env.VUE_APP_API_BASE_URL || 'http://localhost:8001'
                 console.log('Using API Base URL:', API_BASE_URL)
-                const response = await fetch(`${API_BASE_URL}/api/files/${fileId}`, {
+                const response = await fetch(`${API_BASE_URL}/api/files`, {
                     method: 'POST',
                     headers: { 'user-id': userId },
                     body: formData
                 })
                 if (response.ok) {
-                    console.log('File sent to chatbot successfully for user:', userId)
                     const responseData = await response.json()
-                    console.log('Response data:', responseData)
+                    console.log('File uploaded successfully:', responseData)
+                    // responseData.file_id is the server-generated ID
                 } else {
                     console.error('Failed to send file to chatbot. Status:', response.status)
                     console.error('Response text:', await response.text())

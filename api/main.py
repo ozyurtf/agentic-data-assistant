@@ -11,6 +11,7 @@ import json
 from collections import defaultdict
 import math
 import logging
+import uuid
 from typing import List, Dict, Any, Optional
 import os
 from datetime import datetime
@@ -311,9 +312,10 @@ async def get_current_user(request: Request):
             error="Failed to get current user"
         )
 
-@app.post("/api/files/{file_id}", response_model=FileReceiveResponse, status_code=201, description="Upload a drone flight log file")
+@app.post("/api/files", response_model=FileReceiveResponse, status_code=201, description="Upload a drone flight log file")
 @limiter.limit("10/hour")
-async def receive_file(request: Request, file_id: str, file: UploadFile = File(...), user_id: str = Header(alias="user-id")):
+async def receive_file(request: Request, file: UploadFile = File(...), user_id: str = Header(alias="user-id")):
+    file_id = str(uuid.uuid4())
     logger.info(f"Receiving file upload: {file_id} for user: {user_id}")
     logger.info(f"File name: {file.filename}")
 

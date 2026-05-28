@@ -577,14 +577,22 @@ a.centered-section {
     }
 
     .brand {
-        text-align: center;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         font-size: 22px;
-        padding-left: 0px;
         line-height: 50px;
         margin-bottom: 0;
+        padding: 0 12px;
         color: rgb(54, 72, 114) !important;
         background-color: rgba(248, 248, 248, 0.918);
-        display: block;
+    }
+
+    .brand > a[href="/"] {
+        flex: 1;
+        text-align: center;
+        text-decoration: none;
+        color: rgb(54, 72, 114) !important;
     }
 
     .brand a {
@@ -592,11 +600,14 @@ a.centered-section {
         color: rgb(54, 72, 114) !important;
     }
 
+    .github {
+        display: flex;
+        align-items: center;
+    }
+
     .github img {
-        float: left;
         max-height: 30px;
-        margin-left: 8px;
-        margin-top: 10px;
+        margin: 0;
     }
 
     a:hover {
