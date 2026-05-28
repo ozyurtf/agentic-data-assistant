@@ -7,48 +7,39 @@ from pymavlink import mavutil
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 import redis
-import json
 from collections import defaultdict
-import math
 import logging
 import uuid
-from typing import List, Dict, Any, Optional
+from typing import Optional
 import os
 from datetime import datetime
 
 from auth import (
-    JWT_TTL_SECONDS,
     add_user,
     find_user,
     issue_jwt,
-    verify_jwt,
     verify_password,
+    set_auth_cookie,
+    clear_auth_cookie,
+    current_user_from_request,
+    COOKIE_NAME,
 )
+from cache import (
+    r,
+    clear_user_cache,
+    push_file_to_stack,
+    get_latest_file,
+    pop_latest_file,
+    safe_cache_get,
+    safe_cache_set,
+)
+from utils import get_user_id, clean_and_remove_empty_columns
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
-def get_user_id(request: Request):
-    return request.headers.get("user-id", request.client.host)
-
-# Initialize Redis with configuration from models
-redis_config = RedisConfig(
-    host=os.getenv("REDIS_HOST", "localhost"),
-    port=int(os.getenv("REDIS_PORT", 6379)),
-    db=0,
-    decode_responses=True,
-    password=os.getenv("REDIS_PASSWORD")
-)
-
-redis_kwargs = redis_config.dict()
-# Remove None password to avoid auth attempts when not set
-if not redis_kwargs.get("password"):
-    redis_kwargs.pop("password", None)
-r = redis.Redis(**redis_kwargs)
-
-# Initialize app configuration
 app_config = AppConfig(
     upload_dir=Path("files"),
     max_file_size_mb=int(os.getenv("MAX_FILE_SIZE_MB", 100)),
@@ -60,8 +51,8 @@ app_config = AppConfig(
 app_config.upload_dir.mkdir(exist_ok=True)
 
 app = FastAPI(
-    title="Drone Log API", 
-    description="API for processing drone flight logs", 
+    title="Drone Log API",
+    description="API for processing drone flight logs",
     version="1.0.0"
 )
 
@@ -79,171 +70,6 @@ app.add_middleware(
 limiter = Limiter(key_func=get_user_id)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-def clear_user_cache(user_id: str) -> int:
-    """Clear all cached data for a specific user when a new file is uploaded"""
-    try:
-        # First, let's see what keys exist for this user
-        all_user_keys = r.keys(f"*:{user_id}:*")
-        logger.info(f"Found {len(all_user_keys)} total keys for user {user_id}: {all_user_keys}")
-        
-        # Clear different types of cached data
-        patterns = [
-            f"cache:{user_id}:*",      # Data cache
-            f"schema:{user_id}:*",     # Schema cache
-        ]
-        
-        total_cleared = 0
-        for pattern in patterns:
-            keys = r.keys(pattern)
-            if keys:
-                r.delete(*keys)
-                total_cleared += len(keys)
-                logger.info(f"Cleared {len(keys)} keys with pattern {pattern}")
-        
-        logger.info(f"Total cleared: {total_cleared} cache entries for user: {user_id}")
-        return total_cleared
-        
-    except redis.RedisError as e:
-        logger.error(f"Failed to clear cache for user {user_id}: {e}")
-        return 0
-
-def push_file_to_stack(user_id: str, file_metadata: FileMetadata) -> bool:
-    """Push file metadata to Redis list"""
-    try:
-        r.lpush(f"files:{user_id}", file_metadata.json())
-        return True
-    except redis.RedisError as e:
-        logger.error(f"Failed to push file data to Redis: {e}")
-        return False
-
-def get_latest_file(user_id: str) -> Optional[FileMetadata]:
-    """Get most recent uploaded file metadata"""
-    try:
-        raw = r.lindex(f"files:{user_id}", 0)
-        if raw:
-            return FileMetadata.parse_raw(raw)
-        return None
-    except (redis.RedisError, ValueError) as e:
-        logger.error(f"Failed to get latest file for user {user_id}: {e}")
-        return None
-
-def pop_latest_file(user_id: str) -> Optional[FileMetadata]:
-    """Remove most recent uploaded file"""
-    try:
-        raw = r.lpop(f"files:{user_id}")
-        if raw:
-            return FileMetadata.parse_raw(raw)
-        return None
-    except (redis.RedisError, ValueError) as e:
-        logger.error(f"Failed to pop latest file for user {user_id}: {e}")
-        return None
-
-def safe_cache_get(key: str) -> Optional[dict]:
-    """Safely get data from cache with error handling"""
-    try:
-        cached = r.get(key)
-        return json.loads(cached) if cached else None
-    except (redis.RedisError, json.JSONDecodeError) as e:
-        logger.error(f"Failed to get cache key {key}: {e}")
-        return None
-
-def safe_cache_set(key: str, data: Any, ex: int = 3600) -> bool:
-    """Safely set data in cache with error handling"""
-    try:
-        if isinstance(data, BaseModel):
-            r.set(key, data.json(), ex=ex)
-        else:
-            r.set(key, json.dumps(data), ex=ex)
-        return True
-    except (redis.RedisError, TypeError, ValueError) as e:
-        logger.error(f"Failed to set cache key {key}: {e}")
-        return False
-
-def clean_and_remove_empty_columns(data_list: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Efficiently remove columns that are entirely None/NaN.
-    Single pass to identify valid columns, single pass to clean.
-    """
-    if not data_list:
-        return data_list
-    
-    # First pass: identify columns with at least one valid value
-    valid_columns = set()
-    columns_to_check = set(data_list[0].keys())  # Start with first row's columns
-    
-    for row in data_list:
-        # Check remaining columns that haven't been validated yet
-        cols_to_remove = set()
-        for col in columns_to_check:
-            if col in row:
-                value = row[col]
-                # Found a valid value for this column
-                if value is not None and not (isinstance(value, float) and math.isnan(value)):
-                    valid_columns.add(col)
-                    cols_to_remove.add(col)
-        
-        # Remove validated columns from future checks
-        columns_to_check -= cols_to_remove
-        
-        # Early exit if all columns are validated
-        if not columns_to_check:
-            break
-    
-    # Second pass: build cleaned data with only valid columns and clean NaN values
-    cleaned_data = []
-    for row in data_list:
-        cleaned_row = {}
-        for col in valid_columns:
-            if col in row:
-                value = row[col]
-                # Replace NaN with None for JSON compatibility
-                if isinstance(value, float) and math.isnan(value):
-                    cleaned_row[col] = None
-                else:
-                    cleaned_row[col] = value
-        cleaned_data.append(cleaned_row)
-    
-    return cleaned_data    
-
-COOKIE_NAME = "auth_token"
-COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN")
-COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
-COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
-
-
-def set_auth_cookie(response: Response, token: str) -> None:
-    response.set_cookie(
-        key=COOKIE_NAME,
-        value=token,
-        httponly=True,
-        samesite=COOKIE_SAMESITE,
-        secure=COOKIE_SECURE,
-        max_age=JWT_TTL_SECONDS,
-        domain=COOKIE_DOMAIN,
-        path="/",
-    )
-
-
-def clear_auth_cookie(response: Response) -> None:
-    response.delete_cookie(
-        key=COOKIE_NAME,
-        domain=COOKIE_DOMAIN,
-        path="/",
-    )
-
-
-def current_user_from_request(
-    request: Request,
-    auth_token: Optional[str] = None,
-) -> Optional[str]:
-    token = auth_token or request.cookies.get(COOKIE_NAME)
-    if not token:
-        header = request.headers.get("authorization", "")
-        if header.lower().startswith("bearer "):
-            token = header.split(" ", 1)[1]
-    payload = verify_jwt(token) if token else None
-    return payload.get("sub") if payload else None
 
 
 @app.post("/api/signup", response_model=AuthResponse, status_code=201)

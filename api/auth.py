@@ -8,6 +8,7 @@ import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from dotenv import load_dotenv
+from fastapi import Request, Response
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 
@@ -88,3 +89,43 @@ def add_user(user_id: str, password: str) -> dict:
     users.append(user)
     save_users(users)
     return user
+
+
+COOKIE_NAME = "auth_token"
+COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN")
+COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
+COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
+
+
+def set_auth_cookie(response: Response, token: str) -> None:
+    response.set_cookie(
+        key=COOKIE_NAME,
+        value=token,
+        httponly=True,
+        samesite=COOKIE_SAMESITE,
+        secure=COOKIE_SECURE,
+        max_age=JWT_TTL_SECONDS,
+        domain=COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+def clear_auth_cookie(response: Response) -> None:
+    response.delete_cookie(
+        key=COOKIE_NAME,
+        domain=COOKIE_DOMAIN,
+        path="/",
+    )
+
+
+def current_user_from_request(
+    request: Request,
+    auth_token: Optional[str] = None,
+) -> Optional[str]:
+    token = auth_token or request.cookies.get(COOKIE_NAME)
+    if not token:
+        header = request.headers.get("authorization", "")
+        if header.lower().startswith("bearer "):
+            token = header.split(" ", 1)[1]
+    payload = verify_jwt(token) if token else None
+    return payload.get("sub") if payload else None
