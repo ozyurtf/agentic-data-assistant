@@ -2,7 +2,9 @@
 
 <a href="https://www.youtube.com/watch?v=yvr2dXFJIT0"><img src="images/demo.png" alt="Demo video on YouTube" width="100%"></a>
 
-**Note**: The code used to build the UI can be seen in the `Reference` section at the bottom. And I am implementing/integrating the features below on top of it.
+**Note**: I saw an open-source project on GitHub (its code can be seen in the `Reference` section at the bottom) a while ago, and I am implementing/integrating the features below on top of it.
+
+My main motivation behind the project is to improve my skills in building a full-stack application and, more importantly, to enhance my understanding of how various components in a full-stack application work together, rather than just building a simple chatbot, which is probably not something that is needed anymore these days.
 
 # Features
 
@@ -43,7 +45,7 @@
 ### SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
 <p align="center"><img src="images/single-origin-request-flow.png" alt="" width="100%"></p>
 
-### Sign Up, Log In & Authentication
+### Sign Up, Log In, and Authentication
 <p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
 
 ### File Upload
