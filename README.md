@@ -39,7 +39,7 @@
 
 # System
 
-### Single-Origin Request Flow: SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
+### SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
 <p align="center"><img src="images/single-origin-request-flow.png" alt="" width="100%"></p>
 
 ### Sign Up, Log In & Authentication
