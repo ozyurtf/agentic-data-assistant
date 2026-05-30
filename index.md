@@ -44,7 +44,7 @@
 ### Single-Origin Request Flow: SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
 <p align="center"><img src="images/single-origin-request-flow.png" alt="" width="100%"></p>
 
-### Authentication
+### Sign Up, Log In & Authentication
 <p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
 
 ### File Upload
