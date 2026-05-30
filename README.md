@@ -12,6 +12,7 @@
 - Prompt caching <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 
 ### Backend Development 
+- API design and development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Password hashing with Argon2id <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - JWT authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Role based access control <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
