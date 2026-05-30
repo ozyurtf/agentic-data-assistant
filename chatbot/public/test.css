@@ -3,88 +3,48 @@ a[href*='https://github.com/Chainlit/chainlit'] {
 }
 
 .watermark {
-display: none !important;
-}
-
-/* Hide Chainlit's built-in user menu / logout — auth is handled by Vue + JWT. */
-button[aria-label="User menu"],
-button[aria-label="user-menu"],
-[data-testid="user-menu"],
-[class*="UserMenu"],
-[class*="HeaderUserMenu"],
-[class*="HeaderUserButton"] {
     display: none !important;
 }
 
-/* Reduce font sizes throughout the chatbot interface */
-.cl-message {
+/* Hide Chainlit's built-in logout menu item — auth is handled by Vue + JWT. */
+[role="menuitem"]:has(> svg.lucide-log-out) {
+    display: none !important;
+}
+
+/* Hide the username label at the top of that menu. */
+.font-normal:has(> .flex.flex-col > p.font-medium.leading-none) {
+    display: none !important;
+}
+
+/* Disable the user avatar trigger so the (now empty) menu can't open. */
+#user-nav-button {
+    pointer-events: none !important;
+}
+
+.cl-message,
+.cl-message-content,
+.cl-message-text,
+.cl-input,
+.cl-input-text,
+.cl-sidebar,
+.cl-sidebar-content,
+.cl-chat-interface,
+.cl-chat-message,
+.cl-chat-input,
+.cl-header,
+button,
+.cl-button {
     font-size: 0.9rem !important;
 }
 
-.cl-message-content {
-    font-size: 0.9rem !important;
-}
-
-.cl-message-text {
-    font-size: 0.9rem !important;
-}
-
-.cl-input {
-    font-size: 0.9rem !important;
-}
-
-.cl-input-text {
-    font-size: 0.9rem !important;
-}
-
-.cl-sidebar {
-    font-size: 0.9rem !important;
-}
-
-.cl-sidebar-content {
-    font-size: 0.9rem !important;
-}
-
-.cl-chat-interface {
-    font-size: 0.9rem !important;
-}
-
-.cl-chat-message {
-    font-size: 0.9rem !important;
-}
-
-.cl-chat-input {
-    font-size: 0.9rem !important;
-}
-
-/* Reduce font size for code blocks and other elements */
-pre, code {
-    font-size: 0.85rem !important;
-}
-
-.cl-code-block {
-    font-size: 0.85rem !important;
-}
-
-/* Reduce font size for buttons and UI elements */
-button, .cl-button {
-    font-size: 0.9rem !important;
-}
-
-/* Reduce font size for headers and titles */
-h1, h2, h3, h4, h5, h6 {
-    font-size: 0.95rem !important;
-}
-
-.cl-header {
-    font-size: 0.9rem !important;
-}
-
-/* Reduce font size for tool calls and other UI elements */
-.cl-tool-call {
-    font-size: 0.85rem !important;
-}
-
+pre,
+code,
+.cl-code-block,
+.cl-tool-call,
 .cl-tool-call-content {
     font-size: 0.85rem !important;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-size: 0.95rem !important;
 }

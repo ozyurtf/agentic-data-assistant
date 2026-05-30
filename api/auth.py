@@ -3,7 +3,6 @@ import os
 import time
 from pathlib import Path
 from typing import Optional
-
 import jwt
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -11,13 +10,26 @@ from dotenv import load_dotenv
 from fastapi import Request, Response
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
 ph = PasswordHasher()
 
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-in-prod-please")
+JWT_ALG = "HS256"
+JWT_TTL_SECONDS = int(os.getenv("JWT_TTL_SECONDS", 60 * 60 * 24 * 7))
+
+USER_STORE_PATH = Path(
+    os.getenv(
+        "USER_STORE_PATH",
+        Path(__file__).resolve().parent.parent / "chatbot" / "user.json",
+    )
+)
+
+COOKIE_NAME = "auth_token"
+COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN")
+COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
+COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
 
 def hash_password(password: str) -> str:
     return ph.hash(password)
-
 
 def verify_password(stored_hash: str, password: str) -> bool:
     try:
@@ -28,12 +40,6 @@ def verify_password(stored_hash: str, password: str) -> bool:
     except Exception:
         return False
 
-
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-in-prod-please")
-JWT_ALG = "HS256"
-JWT_TTL_SECONDS = int(os.getenv("JWT_TTL_SECONDS", 60 * 60 * 24 * 7))
-
-
 def issue_jwt(user_id: str) -> str:
     now = int(time.time())
     payload = {
@@ -43,7 +49,6 @@ def issue_jwt(user_id: str) -> str:
     }
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALG)
 
-
 def verify_jwt(token: str) -> Optional[dict]:
     if not token:
         return None
@@ -52,34 +57,22 @@ def verify_jwt(token: str) -> Optional[dict]:
     except jwt.PyJWTError:
         return None
 
-
-USER_STORE_PATH = Path(
-    os.getenv(
-        "USER_STORE_PATH",
-        Path(__file__).resolve().parent.parent / "chatbot" / "user.json",
-    )
-)
-
-
 def load_users() -> list[dict]:
     if not USER_STORE_PATH.exists() or USER_STORE_PATH.stat().st_size == 0:
         return []
     with open(USER_STORE_PATH, "r") as f:
         return json.load(f)
 
-
 def save_users(users: list[dict]) -> None:
     USER_STORE_PATH.parent.mkdir(parents=True, exist_ok=True)
     with open(USER_STORE_PATH, "w") as f:
         json.dump(users, f, indent=2)
-
 
 def find_user(user_id: str) -> Optional[dict]:
     for u in load_users():
         if u.get("user_id") == user_id:
             return u
     return None
-
 
 def add_user(user_id: str, password: str) -> dict:
     users = load_users()
@@ -89,13 +82,6 @@ def add_user(user_id: str, password: str) -> dict:
     users.append(user)
     save_users(users)
     return user
-
-
-COOKIE_NAME = "auth_token"
-COOKIE_DOMAIN = os.getenv("AUTH_COOKIE_DOMAIN")
-COOKIE_SAMESITE = os.getenv("AUTH_COOKIE_SAMESITE", "lax").lower()
-COOKIE_SECURE = os.getenv("AUTH_COOKIE_SECURE", "false").lower() == "true"
-
 
 def set_auth_cookie(response: Response, token: str) -> None:
     response.set_cookie(
@@ -109,7 +95,6 @@ def set_auth_cookie(response: Response, token: str) -> None:
         path="/",
     )
 
-
 def clear_auth_cookie(response: Response) -> None:
     response.delete_cookie(
         key=COOKIE_NAME,
@@ -117,11 +102,7 @@ def clear_auth_cookie(response: Response) -> None:
         path="/",
     )
 
-
-def current_user_from_request(
-    request: Request,
-    auth_token: Optional[str] = None,
-) -> Optional[str]:
+def current_user_from_request(request: Request, auth_token: Optional[str] = None) -> Optional[str]:
     token = auth_token or request.cookies.get(COOKIE_NAME)
     if not token:
         header = request.headers.get("authorization", "")

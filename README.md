@@ -39,9 +39,19 @@
 
 # System
 
+### Single-Origin Request Flow: SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
+<p align="center"><img src="images/single-origin-request-flow.png.png" alt="" width="100%"></p>
+
+### Authentication
 <p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
+
+### File Upload
 <p align="center"><img src="images/file-upload.png" alt="" width="100%"></p>
+
+### Agentic Data Extraction
 <p align="center"><img src="images/data-extraction-tool.png" alt="" width="100%"></p>
+
+### Agents
 <p align="center"><img src="images/agents.png" alt="" width="100%"></p>
 
 # Evaluation 
@@ -51,9 +61,10 @@
   - Queries that require information available in the uploaded file
     1. Questions that specifically ask which message type and columns to be extracted? (category: `data_extraction`) 
     2. Queries that require extracting and returning specific information from the uploaded file (category: `extractive`) 
-    3. Queries that require multi-step reasoning (category: `multi_step_reasoning`) 
-    4. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`) 
-    5. Prompts that request multiple tasks to be completed (category: `multi_task`)
+    3. Queries that require multi-step reasoning (category: `multi_step_reasoning_single_file`) 
+    4. Querues that require multi-step reasoning across multiple files (category: `multi_step_reasoning_multiple_files`)
+    5. Queries that require relevant information from external web pages (listed below) to be used when generating the answer (category: `external_knowledge_usage`) 
+    6. Prompts that request multiple tasks to be completed (category: `multi_task`)
     
   - Queries that require information not available in the uploaded file
     1. Queries that measure the system's awareness of external knowledge related to the uploaded file (cateogry: `external_knowledge_awareness`) 

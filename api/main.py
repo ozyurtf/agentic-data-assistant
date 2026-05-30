@@ -13,7 +13,6 @@ import uuid
 from typing import Optional
 import os
 from datetime import datetime
-
 from auth import (
     add_user,
     find_user,
@@ -47,15 +46,12 @@ app_config = AppConfig(
     max_message_types_per_request=int(os.getenv("MAX_MESSAGE_TYPES", 3)),
     allowed_file_extensions=['.bin', '.log', '.tlog']
 )
-
 app_config.upload_dir.mkdir(exist_ok=True)
-
 app = FastAPI(
     title="Drone Log API",
     description="API for processing drone flight logs",
     version="1.0.0"
 )
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[

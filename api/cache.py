@@ -3,15 +3,12 @@ import logging
 import os
 from pathlib import Path
 from typing import Any, Optional
-
 import redis
 from dotenv import load_dotenv
 from pydantic import BaseModel
-
 from models import RedisConfig, FileMetadata
 
 load_dotenv(Path(__file__).resolve().parent.parent / ".env")
-
 logger = logging.getLogger(__name__)
 
 redis_config = RedisConfig(
@@ -26,7 +23,6 @@ redis_kwargs = redis_config.dict()
 if not redis_kwargs.get("password"):
     redis_kwargs.pop("password", None)
 r = redis.Redis(**redis_kwargs)
-
 
 def clear_user_cache(user_id: str) -> int:
     """Clear all cached data for a specific user when a new file is uploaded"""
@@ -54,7 +50,6 @@ def clear_user_cache(user_id: str) -> int:
         logger.error(f"Failed to clear cache for user {user_id}: {e}")
         return 0
 
-
 def push_file_to_stack(user_id: str, file_metadata: FileMetadata) -> bool:
     """Push file metadata to Redis list"""
     try:
@@ -63,7 +58,6 @@ def push_file_to_stack(user_id: str, file_metadata: FileMetadata) -> bool:
     except redis.RedisError as e:
         logger.error(f"Failed to push file data to Redis: {e}")
         return False
-
 
 def get_latest_file(user_id: str) -> Optional[FileMetadata]:
     """Get most recent uploaded file metadata"""
@@ -76,7 +70,6 @@ def get_latest_file(user_id: str) -> Optional[FileMetadata]:
         logger.error(f"Failed to get latest file for user {user_id}: {e}")
         return None
 
-
 def pop_latest_file(user_id: str) -> Optional[FileMetadata]:
     """Remove most recent uploaded file"""
     try:
@@ -88,7 +81,6 @@ def pop_latest_file(user_id: str) -> Optional[FileMetadata]:
         logger.error(f"Failed to pop latest file for user {user_id}: {e}")
         return None
 
-
 def safe_cache_get(key: str) -> Optional[dict]:
     """Safely get data from cache with error handling"""
     try:
@@ -97,7 +89,6 @@ def safe_cache_get(key: str) -> Optional[dict]:
     except (redis.RedisError, json.JSONDecodeError) as e:
         logger.error(f"Failed to get cache key {key}: {e}")
         return None
-
 
 def safe_cache_set(key: str, data: Any, ex: int = 3600) -> bool:
     """Safely set data in cache with error handling"""
