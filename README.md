@@ -4,7 +4,7 @@
 
 **Note**: I saw an open-source project on GitHub (its code can be seen in the `Reference` section at the bottom) a while ago, and I am implementing/integrating the features below on top of it.
 
-My main motivation behind the project is to improve my skills in building a full-stack application and, more importantly, to enhance my understanding of how various components in a full-stack application work together, rather than just building a simple chatbot, which is probably not something that is needed anymore these days.
+My main motivation behind the project is to improve my skills in building a full-stack application that is ready to be used by real people and, more importantly, to enhance my understanding of how various components in a full-stack application work together, rather than just building a simple chatbot.
 
 # Features
 
