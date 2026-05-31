@@ -39,7 +39,7 @@ My main motivation behind the project is to improve my skills in building a full
 
 ### Deployment
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Reverse proxy integration <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
+- Reverse proxy integration <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 # System
