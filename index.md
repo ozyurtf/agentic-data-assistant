@@ -44,7 +44,7 @@ My main motivation behind the project is to improve my skills in building a full
 
 # System
 
-### SPA Load, Cookie-Based Login, and Proxied Chatbot (HTTP + WebSocket)
+### SPA Load, Cookie-Based Login, and Proxied Chatbot
 <p align="center"><img src="images/single-origin-request-flow.png" alt="" width="100%"></p>
 
 ### Sign Up, Log In, and Authentication
