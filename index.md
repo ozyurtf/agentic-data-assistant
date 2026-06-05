@@ -1,3 +1,26 @@
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap');
+
+body,
+.wrapper,
+h1, h2, h3, h4, h5, h6,
+p, li, a, td, th, blockquote {
+  font-family: 'Avenir Next', 'Avenir', 'Nunito Sans', sans-serif !important;
+}
+
+/* Hide the heading anchor-link icons (they render as tofu/hex boxes
+   because the forced font has no glyph for the octicon character). */
+h1 a.anchor, h2 a.anchor, h3 a.anchor,
+h4 a.anchor, h5 a.anchor, h6 a.anchor,
+h1 a[aria-hidden], h2 a[aria-hidden], h3 a[aria-hidden],
+h4 a[aria-hidden], h5 a[aria-hidden], h6 a[aria-hidden],
+.anchor, .octicon, .octicon-link,
+.octicon-link::before, .anchor::before, .anchor::after {
+  display: none !important;
+  content: none !important;
+}
+</style>
+
 # Demo 
 
 <div style="display: flex; justify-content: flex-start; margin-bottom: 20px;">
