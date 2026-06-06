@@ -45,10 +45,10 @@ My main motivation behind the project is to improve my skills in building a full
 ### HTTPS: Certificates and the TLS Handshake
 <p align="center"><img src="images/https.png" alt="" width="100%"></p>
 
-### SPA Load, Cookie-Based Login, Reverse Proxy, and Encrypted Communication
+### SPA Load, Cookie-Based Login, Encrypted Communication, and TLS Termination at Reverse Proxy
 <p align="center"><img src="images/main.png" alt="" width="100%"></p>
 
-### Sign Up, Log In, and Authentication
+### Sign Up, Log In, and JWT Authentication
 <p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
 
 ### File Upload
