@@ -43,7 +43,7 @@ My main motivation behind the project is to improve my skills in building a full
 # System
 
 ### SPA Load, Cookie-Based Login, and Proxied Chatbot
-<p align="center"><img src="images/single-origin-request-flow.png" alt="" width="100%"></p>
+<p align="center"><img src="images/main.png" alt="" width="100%"></p>
 
 ### Sign Up, Log In, and Authentication
 <p align="center"><img src="images/authentication.png" alt="" width="100%"></p>
@@ -52,7 +52,7 @@ My main motivation behind the project is to improve my skills in building a full
 <p align="center"><img src="images/file-upload.png" alt="" width="100%"></p>
 
 ### Agentic Data Extraction
-<p align="center"><img src="images/data-extraction-tool.png" alt="" width="100%"></p>
+<p align="center"><img src="images/data-extraction.png" alt="" width="100%"></p>
 
 ### Agents
 <p align="center"><img src="images/agents.png" alt="" width="100%"></p>
