@@ -43,7 +43,7 @@ My main motivation behind the project is to improve my skills in building a full
 # System
 
 ### HTTPS: Certificates and the TLS Handshake
-<p align="center"><img src="images/https-tls.png" alt="" width="100%"></p>
+<p align="center"><img src="images/https.png" alt="" width="100%"></p>
 
 ### SPA Load, Cookie-Based Login, and Proxied Chatbot
 <p align="center"><img src="images/main.png" alt="" width="100%"></p>
