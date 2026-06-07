@@ -60,6 +60,9 @@ My main motivation behind the project is to improve my skills in building a full
 ### Agents
 <p align="center"><img src="images/agents.png" alt="" width="100%"></p>
 
+### Containerization, Orchestration, and Deployment on AWS EC2
+<p align="center"><img src="images/deployment.png" alt="" width="100%"></p>
+
 # Evaluation 
 
 ## Manual Data Collection
