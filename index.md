@@ -42,7 +42,6 @@ My main motivation behind the project is to improve my skills in building a full
 - API design and development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Password hashing with Argon2id <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - JWT authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Role based access control <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - User session <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Caching extracted data and data schema with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
@@ -64,6 +63,10 @@ My main motivation behind the project is to improve my skills in building a full
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Reverse proxy integration <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+
+### Security
+- Encrypted Communication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Cookie Security: HttpOnly + SameSite <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 # System
 
