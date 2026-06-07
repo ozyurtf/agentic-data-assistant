@@ -1,7 +1,8 @@
-FROM node:20
+### Stage 1: Building
+FROM node:20 AS build
 
 # Define build argument for UI port
-ARG UI_PORT=8080
+ARG UI_PORT=443
 ENV UI_PORT=${UI_PORT}
 ENV PORT=${UI_PORT}
 
@@ -41,4 +42,12 @@ USER nodeuser
 RUN git config --global --add safe.directory /usr/src/app
 
 EXPOSE ${UI_PORT}
-CMD ["npm", "run", "dev"]
+RUN npm run build
+
+
+### Stage 2: Serving
+FROM nginx:alpine
+COPY --from=build /usr/src/app/dist /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
+EXPOSE 80 443
+CMD ["nginx", "-g", "daemon off;"]
