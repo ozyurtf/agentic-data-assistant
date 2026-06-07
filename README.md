@@ -13,7 +13,17 @@ My main motivation behind the project is to improve my skills in building a full
 - Multi-step reasoning <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Prompt caching <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 
-### Backend Development 
+### Evaluation
+- Manual high-quality and diverse data collection to evaluate the system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Online and offline evaluation system with LangSmith <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+
+### Frontend
+- Sign-up and log-in mechanisms integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Chatbot integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+
+### Backend 
 - API design and development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Password hashing with Argon2id <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - JWT authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
@@ -24,24 +34,14 @@ My main motivation behind the project is to improve my skills in building a full
 - AWS-hosted PostgreSQL integration to store user information <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - AWS S3 bucket integration to store the uploaded files <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
-### Frontend
-- Sign-up and log-in mechanisms integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Chatbot integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Photorealistic 3D map <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-
-### Evaluation
-- Manual high-quality and diverse data collection to evaluate the system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Online and offline evaluation system with LangSmith <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+### Security
+- Encrypted Communication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Cookie Security: HttpOnly + SameSite <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 ### Deployment
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Reverse proxy integration <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Deployment in AWS EC2 <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-
-### Security
-- Encrypted Communication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Cookie Security: HttpOnly + SameSite <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 # System
 
