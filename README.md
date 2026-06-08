@@ -10,6 +10,8 @@ My main motivation behind the project is to improve my skills in building a full
 
 ### Agentic System
 - Multi-agent system <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Stateful graph based orchestration with conversational memory <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Conditional routing <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Multi-step reasoning <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Prompt caching <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 
@@ -35,8 +37,8 @@ My main motivation behind the project is to improve my skills in building a full
 - AWS S3 bucket integration to store the uploaded files <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 
 ### Security
-- Encrypted Communication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
-- Cookie Security: HttpOnly + SameSite <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- Encrypted communication <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Cookie security: HttpOnly + SameSite <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 
 ### Deployment
 - Multi-service Docker orchestration <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
