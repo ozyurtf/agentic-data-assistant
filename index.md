@@ -72,8 +72,6 @@ My main motivation behind the project is to improve my skills in building a full
 
 # System
 
-## Agentic System
-
 ### HTTPS: Certificates and the TLS Handshake
 <p align="center"><img src="images/https.png" alt="" width="100%"></p>
 
