@@ -199,9 +199,11 @@ AUTH_COOKIE_SECURE=true                         # Set to true in production (req
 # VUE_APP_CHATBOT_URL=http://your-chatbot-host:port
 ```
 
+
 ## Deploy in AWS
 
 **1) Create EC2 Instance**
+
 - AMI: Ubuntu 24.04 LTS
 - Instance type: m7i-flex.large
 - Storage: 20–30 GB
@@ -245,21 +247,25 @@ nano .env   # set OPENAI_API_KEY, VUE_APP_CESIUM_TOKEN, FIRECRAWL_API_KEY, etc.
 ```
 
 **4) Register a Domain Name**
+
 Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap, Cloudflare, GoDaddy, or Google Domains).  A `.com` domain costs about $10/year.
 
 **5) Point the Domain at the EC2 Instance** 
+
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
 - agenticdas.com → <your-ec2-public-ip>
 - www.agenticdas.com → <your-ec2-public-ip>
 
 **6) Verify the Mapping Locally**
+
 Run the command below in your terminal to verify whether the domain points to the EC2 created in the 1st step.
 
 ```bash
 dig +short agenticdas.com
 ``` 
 
-**7) Obtaining a Certificate from Certificate Authority**
+**7) Obtain a Certificate from Certificate Authority**
+
 Install the Certbot on the EC2. 
 
 ```bash
@@ -277,6 +283,7 @@ ssl_certificate_key /etc/letsencrypt/live/agenticdas.com/privkey.pem;
 ```
 
 **8) Enable Secure Cookies** 
+
 Make sure that `AUTH_COOKIE_SECURE` is defined as `True`.
 
 **9) Launch Services in EC2**
@@ -285,6 +292,7 @@ Make sure that `AUTH_COOKIE_SECURE` is defined as `True`.
 docker-compose up -d
 ```
 **10) Access**
+
 - UI at `http://www.agenticdas.com/`
 - Sign up: `admin` / `password`
 - Log in: `admin` / `password`
