@@ -19,6 +19,7 @@ My main motivation behind the project is to improve my skills in building a full
 - Manual high-quality and diverse data collection to evaluate the system <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Online and offline evaluation system with LangSmith <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
 - Tracking the evaluation metrics in a dashboard <span style="color:rgb(241, 140, 16); font-weight: bold;">**(In Progress)**</span>
+- Building a separate Docker container for tracking online evaluation metrics <span style="color:rgb(245, 48, 18); font-weight: bold;">**(Not Started)**</span>
 
 ### Frontend
 - Sign-up and log-in mechanisms integration to the sidebar <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
