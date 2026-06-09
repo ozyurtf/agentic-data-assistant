@@ -146,11 +146,12 @@ VUE_APP_CESIUM_RESOURCE_ID=3
 VUE_APP_GOOGLE_MAPS_KEY=<your_google_maps_key>
 
 # MapTiler 
-VUE_APP_MAPTILER_KEY=<your_maptiler_key>       # Get from https://docs.maptiler.com/cloud/api/authentication-key/
+VUE_APP_MAPTILER_KEY=<your_maptiler_key>       
 
 # OpenAI 
-LLM_PROVIDER=openai
-OPENAI_API_KEY=<your_openai_api_key>           # Get from https://platform.openai.com/api-keys
+LLM_PROVIDER=anthropic
+OPENAI_API_KEY=<your_openai_api_key>          
+ANTHROPIC_API_KEY=<your_anthropic_api_key>
 
 # Firecrawl
 FIRECRAWL_API_KEY=<your_firecrawl_api_key>     # Get from https://www.firecrawl.dev
@@ -171,34 +172,19 @@ MAX_MESSAGE_TYPES=3
 USER_AGENT=drone-chatbot
 
 # Ports and hosts 
-API_HOST=localhost
+REDIS_PORT=6379
+CHATBOT_PORT=8000
 API_PORT=8001
 
-CHATBOT_HOST=localhost
-CHATBOT_PORT=8000
-
-UI_HOST=0.0.0.0
-UI_PORT=8080
-
-REDIS_HOST=localhost
-REDIS_PORT=6379
+# Redis password
 REDIS_PASSWORD=<enter_a_password_for_redis>
 
 # Auth
 JWT_SECRET=<a_long_random_string>               # Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 JWT_TTL_SECONDS=604800                          # JWT validity window, in seconds (default: 7 days)
 AUTH_COOKIE_SECURE=true                         # Set to true in production (requires HTTPS)
-# AUTH_COOKIE_DOMAIN=.myapp.com                 # Optional: set for production cross-subdomain cookies
-# AUTH_COOKIE_SAMESITE=lax                      # lax (default) for same-origin dev; none + secure=true for cross-site iframes
-
-# Note:
-# In dev, the Vue dev server proxies /api/* to FastAPI and /chatbot to Chainlit,
-# so the frontend uses same-origin requests and cookies work natively. If you
-# need to point the browser at a different host (e.g., production build), set:
-# VUE_APP_API_BASE_URL=http://your-api-host:port
-# VUE_APP_CHATBOT_URL=http://your-chatbot-host:port
+AUTH_COOKIE_SAMESITE=lax                        # lax (default) for same-origin dev; none + secure=true for cross-site iframes
 ```
-
 
 ## Deploy in AWS
 
@@ -284,7 +270,7 @@ ssl_certificate_key /etc/letsencrypt/live/agenticdas.com/privkey.pem;
 
 **8) Enable Secure Cookies** 
 
-Make sure that `AUTH_COOKIE_SECURE` is defined as `True`.
+Make sure that `AUTH_COOKIE_SECURE` is defined as `True` in the `.env` file.
 
 **9) Launch Services in EC2**
   
