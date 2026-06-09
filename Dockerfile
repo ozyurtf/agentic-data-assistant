@@ -34,6 +34,17 @@ RUN npx update-browserslist-db@latest
 # Configure git to trust the mounted directory
 RUN git config --global --add safe.directory /usr/src/app
 
+# 
+ARG VUE_APP_CESIUM_TOKEN
+ARG VUE_APP_CESIUM_RESOURCE_ID
+ARG VUE_APP_GOOGLE_MAPS_KEY
+ARG VUE_APP_MAPTILER_KEY
+
+ENV VUE_APP_CESIUM_TOKEN=$VUE_APP_CESIUM_TOKEN
+ENV VUE_APP_CESIUM_RESOURCE_ID=$VUE_APP_CESIUM_RESOURCE_ID
+ENV VUE_APP_GOOGLE_MAPS_KEY=$VUE_APP_GOOGLE_MAPS_KEY
+ENV VUE_APP_MAPTILER_KEY=$VUE_APP_MAPTILER_KEY
+
 # Run the build script defined in package.json (the "build" entry) 
 # 1) Take all the source code (e.g, .vue files, JavaScript, CSS)
 # 2) Bundle/compile it into plain static files (HTML, JS, CSS) that a browser can actually use
@@ -49,7 +60,7 @@ FROM nginx:alpine
 COPY --from=build /usr/src/app/dist /usr/share/nginx/html/dist/
 
 # Copy the nginx.conf file into the image at /etc/nginx/conf.d/default.conf (the location where nginx looks for its server configuration)
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf.template /etc/nginx/templates/default.conf.template
 
 # nginx forks itself into the background and the original process exits.
 # This results in a dead container.

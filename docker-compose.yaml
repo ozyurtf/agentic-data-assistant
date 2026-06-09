@@ -48,6 +48,9 @@
         - /etc/letsencrypt:/etc/letsencrypt:ro   
       networks:
         - chatbot_net
+      environment: 
+        - API_PORT=${API_PORT}
+        - CHATBOT_PORT=${CHATBOT_PORT}
       depends_on:
         - backend
         - chatbot
