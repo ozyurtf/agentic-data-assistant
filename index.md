@@ -212,7 +212,7 @@ REDIS_PASSWORD=<enter_a_password_for_redis>
 # Auth
 JWT_SECRET=<a_long_random_string>               # Generate with: python3 -c "import secrets; print(secrets.token_urlsafe(48))"
 JWT_TTL_SECONDS=604800                          # JWT validity window, in seconds (default: 7 days)
-AUTH_COOKIE_SECURE=false                        # Set to true in production (requires HTTPS)
+AUTH_COOKIE_SECURE=true                         # Set to true in production (requires HTTPS)
 # AUTH_COOKIE_DOMAIN=.myapp.com                 # Optional: set for production cross-subdomain cookies
 # AUTH_COOKIE_SAMESITE=lax                      # lax (default) for same-origin dev; none + secure=true for cross-site iframes
 
@@ -224,34 +224,16 @@ AUTH_COOKIE_SECURE=false                        # Set to true in production (req
 # VUE_APP_CHATBOT_URL=http://your-chatbot-host:port
 ```
 
-## Run with Docker Locally
-
-To start building containers and running services, make sure Docker Desktop application is running and run the containers:
-
-```bash
-docker-compose up -d
-```
-
-Visit `http://localhost:8080/` to interact with the UI and chatbot. The page may take a few moments to load.
-
-Once the page is loaded, enter `admin` in the email field and `password` in the password field to log in to the application. 
-
-**Warning**: Please log in first before uploading a file. 
-
-To stop all services, you can run:
-
-```bash
-docker-compose down
-```
-
-## Run with Docker in AWS
+## Deploy in AWS
 
 **1) Create EC2 Instance**
 - AMI: Ubuntu 24.04 LTS
 - Instance type: m7i-flex.large
 - Storage: 20–30 GB
 - Number of instances: 1
-- Security group rules: Allow ports `22` (SSH from your IP), `8080` (UI), `8000` (Chatbot), `8001` (API) (0.0.0.0/0 for testing)
+- Security group rules: Allow ports `22` (SSH from your IP), `80`, and `443`.
+
+**Note**: By default, EC2 blocks all inbound traffic. The security group acts as the firewall for the EC2 instance and determines which sources and ports are allowed to reach the machine.
 
 **2) Connect and Prepare the Machine**
   
@@ -287,37 +269,51 @@ touch .env
 nano .env   # set OPENAI_API_KEY, VUE_APP_CESIUM_TOKEN, FIRECRAWL_API_KEY, etc.
 ```
 
-**4) Launch Services**
+**4) Register a Domain Name**
+Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap, Cloudflare, GoDaddy, or Google Domains).  A `.com` domain costs about $10/year.
+
+**5) Point the Domain at the EC2 Instance** 
+In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
+- agenticdas.com → <your-ec2-public-ip>
+- www.agenticdas.com → <your-ec2-public-ip>
+
+**6) Verify the Mapping Locally**
+Run the command below in your terminal to verify whether the domain points to the EC2 created in the 1st step.
+
+```bash
+dig +short agenticdas.com
+``` 
+
+**7) Obtaining a Certificate from Certificate Authority**
+Install the Certbot on the EC2. 
+
+```bash
+sudo apt install -y certbot
+sudo certbot certonly --standalone -d agenticdas.com -d www.agenticdas.com
+```
+
+After this, the certificate (`fullchain.pem`) and the private key (`privkey.pem`) are saved to the EBS volume (`/etc/letsencrypt/live/agenticdas.com/`).
+
+**Note**: The `nginx.conf.template` file references these files:
+
+```
+ssl_certificate /etc/letsencrypt/live/agenticdas.com/fullchain.pem;
+ssl_certificate_key /etc/letsencrypt/live/agenticdas.com/privkey.pem;
+```
+
+**8) Enable Secure Cookies** 
+Make sure that `AUTH_COOKIE_SECURE` is defined as `True`.
+
+**9) Launch Services in EC2**
   
 ```bash
 docker-compose up -d
 ```
+**10) Access**
+- UI at `http://www.agenticdas.com/`
+- Sign up: `admin` / `password`
+- Log in: `admin` / `password`
 
-**5) Access**
-
-- UI at `http://your-public-ip:8080`
-- Chatbot at `http://your-public-ip:8000`
-- API docs at `http://your-public-ip:8001/docs`
-- Default login: `admin` / `password`
-
-# Notes
-
-## Configuration Flexibility
-
-The system is fully configurable via the `.env` file:
-
-- **Ports**: Change any service port by modifying `UI_PORT`, `API_PORT`, `CHATBOT_PORT`, or `REDIS_PORT`
-- **Hosts**: Configure service hosts using `UI_HOST`, `API_HOST`, `CHATBOT_HOST`, or `REDIS_HOST`
-
-The application will automatically use your configured values throughout the entire stack.
-
-## CORS Configuration
-- The API uses CORS and currently allows requests from:
-  `- http://localhost:8080` (Vue frontend)
-  `- http://localhost:8000` (Chatbot)
-
-If you run the frontend/chatbot on a different host or port (or deploy to a domain),
-update `allow_origins` in `api/main.py` so it includes the new origin(s). 
 
 # References
 
