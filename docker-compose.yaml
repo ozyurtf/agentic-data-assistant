@@ -1,9 +1,7 @@
   services:
     backend:
       build:
-        context: ./api
-        args:
-          API_PORT: ${API_PORT}                                                                                                                             
+        context: ./api                                                                                                                        
       container_name: api
       env_file:
         - .env
@@ -13,13 +11,10 @@
         - redis
       environment:
         - REDIS_HOST=redis
-        - REDIS_PORT=${REDIS_PORT}                                                                                                                          
-      
+
     chatbot:
       build:
-        context: ./chatbot                                                                                                                                  
-        args:
-          CHATBOT_PORT: ${CHATBOT_PORT}
+        context: ./chatbot
       container_name: chatbot
       env_file:
         - .env
@@ -27,10 +22,7 @@
         - chatbot_net
       environment:
         - CHAINLIT_HOST=0.0.0.0
-        - CHAINLIT_PORT=${CHATBOT_PORT}
         - API_HOST=api
-        - API_PORT=${API_PORT}
-        - FIRECRAWL_API_KEY=${FIRECRAWL_API_KEY}
 
     frontend:
       build:
@@ -49,8 +41,8 @@
       networks:
         - chatbot_net
       environment: 
+        - CHAINLIT_PORT=${CHATBOT_PORT}
         - API_PORT=${API_PORT}
-        - CHATBOT_PORT=${CHATBOT_PORT}
       depends_on:
         - backend
         - chatbot

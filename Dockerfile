@@ -34,7 +34,6 @@ RUN npx update-browserslist-db@latest
 # Configure git to trust the mounted directory
 RUN git config --global --add safe.directory /usr/src/app
 
-# 
 ARG VUE_APP_CESIUM_TOKEN
 ARG VUE_APP_CESIUM_RESOURCE_ID
 ARG VUE_APP_GOOGLE_MAPS_KEY

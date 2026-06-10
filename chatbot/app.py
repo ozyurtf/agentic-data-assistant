@@ -1,11 +1,6 @@
-# app.py — Chainlit entry point. Run with: chainlit run app.py
-# All graph and tool logic lives in core/. This file is just the adapter
-# that wires Chainlit's UI handlers to the compiled graph.
-
 import asyncio
 import os
 from typing import Dict
-
 import chainlit as cl
 import jwt
 import matplotlib
@@ -27,7 +22,7 @@ from core.graph import graph
 matplotlib.use("Agg")
 load_dotenv()
 
-JWT_SECRET = os.getenv("JWT_SECRET", "dev-only-change-in-prod-please")
+JWT_SECRET = os.getenv("JWT_SECRET")
 JWT_ALG = "HS256"
 COOKIE_NAME = "auth_token"
 
