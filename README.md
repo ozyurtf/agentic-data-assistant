@@ -127,15 +127,59 @@ Considering that I had already used LangChain and LangGraph during the process, 
 
 ## Deploy in AWS
 
-Create a `files` folder inside `api`
+Create a `files` folder inside the `api` folder.
 
 ```bash
 mkdir -p api/files
 ```
 
-**1) Configure Environment Variables**
+**1) Create EC2 Instance**
 
-Create an `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
+- AMI: Ubuntu 24.04 LTS
+- Instance type: m7i-flex.large
+- Storage: 20–30 GB
+- Number of instances: 1
+- Security group rules: Allow ports `22` (SSH from your IP), `80`, and `443`.
+
+**Note**: By default, EC2 blocks all inbound traffic. The security group acts as a firewall for the EC2 instance and determines which sources and ports are allowed to access the machine.
+
+**2) Connect and Prepare the Machine**
+
+Run the command below in your computer’s terminal.
+
+```bash  
+ssh -i your-key.pem ubuntu@your-public-ip
+```
+
+This connects your terminal to the EC2 instance. Next, run the commands below to install Git, Docker, and Docker Compose on EC2, start Docker, and add the `ubuntu` user to the docker group so you can run Docker without sudo.
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install -y docker.io git
+sudo systemctl enable --now docker
+sudo usermod -aG docker ubuntu
+sudo apt install -y docker-compose-plugin
+sudo chmod +x /usr/local/bin/docker-compose
+  
+exit
+```
+
+**3) Deploy Code**
+
+Reconnect to the EC2 instance from the terminal.
+
+```bash  
+ssh -i your-key.pem ubuntu@your-public-ip
+```
+
+Clone the project repository from GitHub.
+
+```bash  
+git clone https://github.com/ozyurtf/agentic-data-assistant.git
+cd agentic-data-assistant
+```
+
+Copy the variables below.
 
 ```env 
 # Cesium 
@@ -186,61 +230,24 @@ AUTH_COOKIE_SECURE=true                         # Set to true in production (req
 AUTH_COOKIE_SAMESITE=lax                        # lax (default) for same-origin dev; none + secure=true for cross-site iframes
 ```
 
-**2) Create EC2 Instance**
+Create an empty `.env` file, set the values of the copied variables inside the `.env` file, and save it.
 
-- AMI: Ubuntu 24.04 LTS
-- Instance type: m7i-flex.large
-- Storage: 20–30 GB
-- Number of instances: 1
-- Security group rules: Allow ports `22` (SSH from your IP), `80`, and `443`.
-
-**Note**: By default, EC2 blocks all inbound traffic. The security group acts as the firewall for the EC2 instance and determines which sources and ports are allowed to reach the machine.
-
-**3) Connect and Prepare the Machine**
-  
-```bash  
-ssh -i your-key.pem ubuntu@your-public-ip
-  
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y docker.io git
-sudo systemctl enable --now docker
-sudo usermod -aG docker ubuntu
-  
-# Install Docker Compose
-sudo curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-sudo chmod +x /usr/local/bin/docker-compose
-  
-exit
-```
-
-```bash
-ssh -i your-key.pem ubuntu@your-public-ip
-```
-
-**4) Deploy Code**
-
-Clone your repository and configure environment:
-
-```bash  
-git clone https://github.com/ozyurtf/agentic-data-assistant.git
-cd agentic-data-assistant
-
-# Create and edit .env using the variables listed in the "Configure Environment Variables" section above
+```bash 
 touch .env
-nano .env   # set OPENAI_API_KEY, VUE_APP_CESIUM_TOKEN, FIRECRAWL_API_KEY, etc.
+nano .env 
 ```
 
-**5) Register a Domain Name**
+**4) Register a Domain Name**
 
 Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap, Cloudflare, GoDaddy, or Google Domains).  A `.com` domain costs about $10/year.
 
-**6) Point the Domain at the EC2 Instance** 
+**5) Point the Domain at the EC2 Instance** 
 
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
 - agenticdas.com: <your-ec2-public-ip>
 - www.agenticdas.com: <your-ec2-public-ip>
 
-**7) Verify the Mapping Locally**
+**6) Verify the Mapping Locally**
 
 Run the command below in your terminal to verify whether the domain points to the EC2 created in the 1st step.
 
@@ -248,7 +255,7 @@ Run the command below in your terminal to verify whether the domain points to th
 dig +short agenticdas.com
 ``` 
 
-**8) Obtain a Certificate from Certificate Authority**
+**7) Obtain a Certificate from Certificate Authority**
 
 Install the Certbot on the EC2. 
 
@@ -266,16 +273,16 @@ ssl_certificate /etc/letsencrypt/live/agenticdas.com/fullchain.pem;
 ssl_certificate_key /etc/letsencrypt/live/agenticdas.com/privkey.pem;
 ```
 
-**9) Enable Secure Cookies** 
+**8) Enable Secure Cookies** 
 
 Make sure that `AUTH_COOKIE_SECURE` is defined as `true` in the `.env` file.
 
-**10) Launch Services in EC2**
+**9) Launch Services in EC2**
   
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
-**11) Access**
+**10) Access**
 
 - UI at `http://www.agenticdas.com/`
 - Sign up: `admin` / `password`
