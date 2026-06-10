@@ -139,7 +139,7 @@ Considering that I had already used LangChain and LangGraph during the process, 
 
 **2) Connect and Prepare the Machine**
 
-Run the command below in your computer’s terminal.
+Run the command below in your computer’s terminal to connect to the EC2 instance from the terminal.
 
 ```bash  
 ssh -i your-key.pem ubuntu@your-public-ip
@@ -153,17 +153,9 @@ sudo apt install -y docker.io git
 sudo systemctl enable --now docker
 sudo usermod -aG docker ubuntu
 sudo apt install -y docker-compose-plugin
-  
-exit
 ```
 
 **3) Deploy Code**
-
-Reconnect to the EC2 instance from the terminal.
-
-```bash  
-ssh -i your-key.pem ubuntu@your-public-ip
-```
 
 Clone the project repository from GitHub.
 
@@ -286,7 +278,6 @@ docker compose up -d --build
 - UI at `https://www.agenticdas.com/`
 - Sign up: `admin` / `password`
 - Log in: `admin` / `password`
-
 
 # References
 

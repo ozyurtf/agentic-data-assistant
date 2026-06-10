@@ -164,7 +164,7 @@ Considering that I had already used LangChain and LangGraph during the process, 
 
 **2) Connect and Prepare the Machine**
 
-Run the command below in your computer’s terminal.
+Run the command below in your computer’s terminal to connect to the EC2 instance from the terminal.
 
 ```bash  
 ssh -i your-key.pem ubuntu@your-public-ip
@@ -178,17 +178,9 @@ sudo apt install -y docker.io git
 sudo systemctl enable --now docker
 sudo usermod -aG docker ubuntu
 sudo apt install -y docker-compose-plugin
-  
-exit
 ```
 
 **3) Deploy Code**
-
-Reconnect to the EC2 instance from the terminal.
-
-```bash  
-ssh -i your-key.pem ubuntu@your-public-ip
-```
 
 Clone the project repository from GitHub.
 
@@ -268,7 +260,7 @@ Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap,
 **5) Point the Domain at the EC2 Instance** 
 
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
-- agenticdas.com: `<your-ec2-public-ip>` 
+- agenticdas.com: `<your-ec2-public-ip>`
 - www.agenticdas.com: `<your-ec2-public-ip>`
 
 **6) Verify the Mapping Locally**
@@ -311,7 +303,6 @@ docker compose up -d --build
 - UI at `https://www.agenticdas.com/`
 - Sign up: `admin` / `password`
 - Log in: `admin` / `password`
-
 
 # References
 
