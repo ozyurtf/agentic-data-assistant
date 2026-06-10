@@ -127,12 +127,6 @@ Considering that I had already used LangChain and LangGraph during the process, 
 
 ## Deploy in AWS
 
-Create a `files` folder inside the `api` folder.
-
-```bash
-mkdir -p api/files
-```
-
 **1) Create EC2 Instance**
 
 - AMI: Ubuntu 24.04 LTS
@@ -159,7 +153,6 @@ sudo apt install -y docker.io git
 sudo systemctl enable --now docker
 sudo usermod -aG docker ubuntu
 sudo apt install -y docker-compose-plugin
-sudo chmod +x /usr/local/bin/docker-compose
   
 exit
 ```
@@ -177,6 +170,12 @@ Clone the project repository from GitHub.
 ```bash  
 git clone https://github.com/ozyurtf/agentic-data-assistant.git
 cd agentic-data-assistant
+```
+
+Create a `files` folder inside the `api` folder.
+
+```bash
+mkdir -p api/files
 ```
 
 Copy the variables below.
@@ -244,8 +243,8 @@ Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap,
 **5) Point the Domain at the EC2 Instance** 
 
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
-- agenticdas.com -> <your-ec2-public-ip>
-- www.agenticdas.com -> <your-ec2-public-ip>
+- agenticdas.com: <your-ec2-public-ip>
+- www.agenticdas.com: <your-ec2-public-ip>
 
 **6) Verify the Mapping Locally**
 
@@ -280,11 +279,11 @@ Make sure that `AUTH_COOKIE_SECURE` is defined as `true` in the `.env` file.
 **9) Launch Services in EC2**
   
 ```bash
-docker compose up -d
+docker compose up -d --build
 ```
 **10) Access**
 
-- UI at `http://www.agenticdas.com/`
+- UI at `https://www.agenticdas.com/`
 - Sign up: `admin` / `password`
 - Log in: `admin` / `password`
 
