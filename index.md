@@ -268,8 +268,8 @@ Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap,
 **5) Point the Domain at the EC2 Instance** 
 
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
-- agenticdas.com: <your-ec2-public-ip>
-- www.agenticdas.com: <your-ec2-public-ip>
+- agenticdas.com: `<your-ec2-public-ip>` 
+- www.agenticdas.com: `<your-ec2-public-ip>`
 
 **6) Verify the Mapping Locally**
 
