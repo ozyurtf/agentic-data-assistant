@@ -150,7 +150,7 @@ Considering that I had already used LangChain and LangGraph during the process, 
 
 `To be announced`
 
-# Running  
+## Deploy in AWS
 
 Create a `files` folder inside `api`
 
@@ -158,7 +158,7 @@ Create a `files` folder inside `api`
 mkdir -p api/files
 ```
 
-## Configure Environment Variables
+**1) Configure Environment Variables**
 
 Create an `.env` file in the root folder with the following values. The environment variables will be automatically loaded when you run the development server:
 
@@ -211,9 +211,7 @@ AUTH_COOKIE_SECURE=true                         # Set to true in production (req
 AUTH_COOKIE_SAMESITE=lax                        # lax (default) for same-origin dev; none + secure=true for cross-site iframes
 ```
 
-## Deploy in AWS
-
-**1) Create EC2 Instance**
+**2) Create EC2 Instance**
 
 - AMI: Ubuntu 24.04 LTS
 - Instance type: m7i-flex.large
@@ -223,7 +221,7 @@ AUTH_COOKIE_SAMESITE=lax                        # lax (default) for same-origin 
 
 **Note**: By default, EC2 blocks all inbound traffic. The security group acts as the firewall for the EC2 instance and determines which sources and ports are allowed to reach the machine.
 
-**2) Connect and Prepare the Machine**
+**3) Connect and Prepare the Machine**
   
 ```bash  
 ssh -i your-key.pem ubuntu@your-public-ip
@@ -244,7 +242,7 @@ exit
 ssh -i your-key.pem ubuntu@your-public-ip
 ```
 
-**3) Deploy Code**
+**4) Deploy Code**
 
 Clone your repository and configure environment:
 
@@ -257,17 +255,17 @@ touch .env
 nano .env   # set OPENAI_API_KEY, VUE_APP_CESIUM_TOKEN, FIRECRAWL_API_KEY, etc.
 ```
 
-**4) Register a Domain Name**
+**5) Register a Domain Name**
 
 Buy a domain (let's call it `agenticdas.com`) from a registrar (e.g., Namecheap, Cloudflare, GoDaddy, or Google Domains).  A `.com` domain costs about $10/year.
 
-**5) Point the Domain at the EC2 Instance** 
+**6) Point the Domain at the EC2 Instance** 
 
 In the DNS panel, create two A records for mapping the domain into the IP address of the EC2 instance:
-- agenticdas.com → <your-ec2-public-ip>
-- www.agenticdas.com → <your-ec2-public-ip>
+- agenticdas.com: <your-ec2-public-ip>
+- www.agenticdas.com: <your-ec2-public-ip>
 
-**6) Verify the Mapping Locally**
+**7) Verify the Mapping Locally**
 
 Run the command below in your terminal to verify whether the domain points to the EC2 created in the 1st step.
 
@@ -275,7 +273,7 @@ Run the command below in your terminal to verify whether the domain points to th
 dig +short agenticdas.com
 ``` 
 
-**7) Obtain a Certificate from Certificate Authority**
+**8) Obtain a Certificate from Certificate Authority**
 
 Install the Certbot on the EC2. 
 
@@ -293,16 +291,16 @@ ssl_certificate /etc/letsencrypt/live/agenticdas.com/fullchain.pem;
 ssl_certificate_key /etc/letsencrypt/live/agenticdas.com/privkey.pem;
 ```
 
-**8) Enable Secure Cookies** 
+**9) Enable Secure Cookies** 
 
-Make sure that `AUTH_COOKIE_SECURE` is defined as `True` in the `.env` file.
+Make sure that `AUTH_COOKIE_SECURE` is defined as `true` in the `.env` file.
 
-**9) Launch Services in EC2**
+**10) Launch Services in EC2**
   
 ```bash
 docker-compose up -d
 ```
-**10) Access**
+**11) Access**
 
 - UI at `http://www.agenticdas.com/`
 - Sign up: `admin` / `password`
