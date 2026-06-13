@@ -28,9 +28,9 @@ My main motivation behind the project is to improve my skills in building a full
 
 ### Backend 
 - API design and development <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
+- API rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Password hashing with Argon2id <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - JWT authentication <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
-- Rate limiting <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - User session <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Caching extracted data and data schema with Redis <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
 - Data validation with Pydantic <span style="color: #28a745; font-weight: bold;">**(Done)**</span>
